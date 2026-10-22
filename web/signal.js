@@ -6,7 +6,7 @@
 // Nasdaq 100, S&P 500, all NYSE common stocks) or one ticker, and get a ranking with
 // per-indicator contributions, the data source and timestamp, and an AI summary that only
 // explains the computed scores.
-// Request path: /ya/scan -> n8n "YA 6 – Signal Lab page: scan stocks" -> "YA 3 – Sub: analyse stocks with indicators" -> Python API.
+// Request path: /ya/scan -> n8n "YourAnalyst 6 – Signal Lab page: scan stocks" -> "YourAnalyst 3 – Sub: analyse stocks with indicators" -> Python API.
 
 const SL_INDICATORS = [
     { key: 'rsi',      name: 'RSI',           what: 'Has the stock been sold too much, or bought too much?' },

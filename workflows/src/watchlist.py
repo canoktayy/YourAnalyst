@@ -1,4 +1,4 @@
-"""YA 4 – Sub: add or remove watchlist stocks (sub-workflow, called by the chat router).
+"""YourAnalyst 4 – Sub: add or remove watchlist stocks (sub-workflow, called by the chat router).
 
 Input item: {user_id, request_id, event_id, watchlist: {action: add|remove, items: [..]}}
 Output item: {intent, status, reply, data}
@@ -185,4 +185,4 @@ connections = connect(
     ("DB: remove from watchlist", "Reply: removed"),
 )
 
-write("watchlist", "YAwatchlist00001", "YA 4 – Sub: add or remove watchlist stocks", nodes, connections)
+write("watchlist", "YAwatchlist00001", "YourAnalyst 4 – Sub: add or remove watchlist stocks", nodes, connections)

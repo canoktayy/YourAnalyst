@@ -1,4 +1,4 @@
-"""YA 1 – Chat: understand and route a message: POST /webhook/ya-chat {event_id, text} from the dashboard chat panel.
+"""YourAnalyst 1 – Chat: understand and route a message: POST /webhook/ya-chat {event_id, text} from the dashboard chat panel.
 
 auth -> validate -> register event_id (replay => stored reply, no second write)
      -> pending yes/no handled without the LLM
@@ -777,4 +777,4 @@ connect_ai(connections, "LLM for AI 1", "AI 1: choose the tool (JSON)")
 connect_ai(connections, "LLM for small talk", "AI: small-talk reply")
 connect_ai(connections, "LLM for AI 2", "AI 2: write the reply")
 
-write("chat_router", "YAchatRouter0001", "YA 1 – Chat: understand and route a message", nodes, connections)
+write("chat_router", "YAchatRouter0001", "YourAnalyst 1 – Chat: understand and route a message", nodes, connections)

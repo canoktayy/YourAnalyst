@@ -1,4 +1,4 @@
-"""YA 3 – Sub: analyse stocks with indicators (sub-workflow).
+"""YourAnalyst 3 – Sub: analyse stocks with indicators (sub-workflow).
 
 Input item: {mode: single|rank, user_id, request_id, event_id, analysis: {symbol, indicators, top}}
 Output item: {reply, status: done|failed, intent, data}
@@ -199,4 +199,4 @@ connections = connect(
 )
 connect_ai(connections, "LLM for explanation", "AI: explain top results")
 
-write("analyse_stock", "YAanalyseStock01", "YA 3 – Sub: analyse stocks with indicators", nodes, connections)
+write("analyse_stock", "YAanalyseStock01", "YourAnalyst 3 – Sub: analyse stocks with indicators", nodes, connections)

@@ -2,7 +2,7 @@
 <rect width="1200" height="770" fill="#161616"/>
 <defs><pattern id="g" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#2a2a2a"/></pattern><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#8a867e"/></marker><marker id="e" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#d9634c"/></marker></defs>
 <rect width="1200" height="770" fill="url(#g)"/>
-<text x="24" y="40" fill="#ece9e3" font-size="22" font-weight="600">YA 2 – Sub: save a financial record</text>
+<text x="24" y="40" fill="#ece9e3" font-size="22" font-weight="600">YourAnalyst 2 – Sub: save a financial record</text>
 <text x="24" y="64" fill="#8a867e" font-size="13">10 nodes · drawn from workflows/record_entry.json · red = error output · dashed green = LLM used by an AI node</text>
 <path d="M170 370.0 C240.0 370.0 240.0 370.0 308 370.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
 <path d="M390 350.0 C470.0 350.0 470.0 170.0 548 170.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>

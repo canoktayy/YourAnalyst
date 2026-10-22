@@ -1,4 +1,4 @@
-"""YA 8 – Refresh prices and exchange rates: quotes + FX rates into Postgres.
+"""YourAnalyst 8 – Refresh prices and exchange rates: quotes + FX rates into Postgres.
 
 Triggers: Schedule (every 30 min), Manual (demo), and POST /ya-refresh (dashboard
 refresh button; answers 202 right away, the dashboard re-reads a few seconds later).
@@ -181,4 +181,4 @@ connections = connect(
     ("Keep only valid FX rates", "DB: save FX rates"),
 )
 
-write("valuation_refresh", "YAvaluationRfrsh", "YA 8 – Refresh prices and exchange rates", nodes, connections)
+write("valuation_refresh", "YAvaluationRfrsh", "YourAnalyst 8 – Refresh prices and exchange rates", nodes, connections)

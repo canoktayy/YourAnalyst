@@ -2,7 +2,7 @@
 <rect width="2120" height="810" fill="#161616"/>
 <defs><pattern id="g" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#2a2a2a"/></pattern><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#8a867e"/></marker><marker id="e" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#d9634c"/></marker></defs>
 <rect width="2120" height="810" fill="url(#g)"/>
-<text x="24" y="40" fill="#ece9e3" font-size="22" font-weight="600">YA 3 – Sub: analyse stocks with indicators</text>
+<text x="24" y="40" fill="#ece9e3" font-size="22" font-weight="600">YourAnalyst 3 – Sub: analyse stocks with indicators</text>
 <text x="24" y="64" fill="#8a867e" font-size="13">14 nodes · drawn from workflows/analyse_stock.json · red = error output · dashed green = LLM used by an AI node</text>
 <path d="M170 290.0 C240.0 290.0 240.0 290.0 308 290.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
 <path d="M390 276.6666666666667 C470.0 276.6666666666667 470.0 170.0 548 170.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>

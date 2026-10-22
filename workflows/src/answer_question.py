@@ -1,4 +1,4 @@
-"""YA 5 – Sub: answer a question about my money (sub-workflow, called by the chat router).
+"""YourAnalyst 5 – Sub: answer a question about my money (sub-workflow, called by the chat router).
 
 Input item: {user_id, request_id, event_id, mode: question|what_if,
              question: {text, scenario: [{symbol, price|null, change_pct|null}]}}
@@ -227,4 +227,4 @@ connections = connect(
 )
 connect_ai(connections, "LLM for answer", "AI: word the answer")
 
-write("answer_question", "YAanswerQuest001", "YA 5 – Sub: answer a question about my money", nodes, connections)
+write("answer_question", "YAanswerQuest001", "YourAnalyst 5 – Sub: answer a question about my money", nodes, connections)

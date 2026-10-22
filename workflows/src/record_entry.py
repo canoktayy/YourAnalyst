@@ -1,4 +1,4 @@
-"""YA 2 – Sub: save a financial record (sub-workflow).
+"""YourAnalyst 2 – Sub: save a financial record (sub-workflow).
 
 Input item: {mode: propose|confirm|cancel, user_id, request_id, event_id, record?}
 Output item: {reply, status: awaiting_confirmation|done, intent, data}
@@ -166,4 +166,4 @@ connections = connect(
     ("DB: cancel pending record", "Reply: cancelled"),
 )
 
-write("record_entry", "YArecordEntry001", "YA 2 – Sub: save a financial record", nodes, connections)
+write("record_entry", "YArecordEntry001", "YourAnalyst 2 – Sub: save a financial record", nodes, connections)

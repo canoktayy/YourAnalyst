@@ -1,4 +1,4 @@
-"""YA 7 – Dashboard page: load and save data: GET dashboard data, POST record create/update/delete.
+"""YourAnalyst 7 – Dashboard page: load and save data: GET dashboard data, POST record create/update/delete.
 
 Both webhooks authenticate with the X-YA-Token header (sha256 compared with
 app_user.api_token_hash) and answer with the full dashboard payload, so the UI
@@ -218,4 +218,4 @@ connections = connect(
     ("DB: load dashboard data", "Reply: dashboard data"),
 )
 
-write("dashboard_api", "YAdashboardApi01", "YA 7 – Dashboard page: load and save data", nodes, connections)
+write("dashboard_api", "YAdashboardApi01", "YourAnalyst 7 – Dashboard page: load and save data", nodes, connections)

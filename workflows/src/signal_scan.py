@@ -1,8 +1,8 @@
-"""YA 6 – Signal Lab page: scan stocks: the Signal Lab page's entry point.
+"""YourAnalyst 6 – Signal Lab page: scan stocks: the Signal Lab page's entry point.
 
 POST /ya-scan  {mode: "rank", universe: demo|dow30|nasdaq100|sp500|nyse, indicators: [...]} -> ranked
                {mode: "single", symbol: "AAPL", indicators: [...]} -> one stock
-Same path as the chat: it calls the "YA 3 – Sub: analyse stocks with indicators" sub-workflow, so the numbers
+Same path as the chat: it calls the "YourAnalyst 3 – Sub: analyse stocks with indicators" sub-workflow, so the numbers
 come from the Python analysis API, the LLM only explains the top results, and every run
 is saved to the analysis table. The page shows the full ranked table plus that summary.
 """
@@ -52,4 +52,4 @@ connections = connect(
     ("Run sub: analyse stocks", "Reply: ranked stocks"),
 )
 
-write("signal_scan", "YAsignalScan0001", "YA 6 – Signal Lab page: scan stocks", nodes, connections)
+write("signal_scan", "YAsignalScan0001", "YourAnalyst 6 – Signal Lab page: scan stocks", nodes, connections)

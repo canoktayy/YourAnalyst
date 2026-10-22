@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Unit tests for the AI guard code (needs node): the wording check for stock indicators
-(workflows/src/lib.py) and the currency-aware number check of "YA 5 – Sub: answer a question about my money".
+(workflows/src/lib.py) and the currency-aware number check of "YourAnalyst 5 – Sub: answer a question about my money".
 Cases are real wrong answers the 7B model gave during testing.
     python3 tests/test_checks.py
 """
