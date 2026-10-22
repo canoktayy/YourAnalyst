@@ -62,6 +62,9 @@ services:
       WEBHOOK_URL: ${WEBHOOK_URL:-http://localhost:5678/}
       # Base of the execution URLs the Error Workflow stores.
       N8N_EDITOR_BASE_URL: ${N8N_EDITOR_BASE_URL:-http://localhost:5678}
+      # Local http only: Safari drops n8n's secure (HTTPS-only) login cookie on http://localhost.
+      # Set it back to true behind HTTPS.
+      N8N_SECURE_COOKIE: ${N8N_SECURE_COOKIE:-false}
       N8N_RUNNERS_ENABLED: "true"
       N8N_DIAGNOSTICS_ENABLED: "false"
       # Workflows read the chat model id from here ($env.YA_LLM_MODEL).

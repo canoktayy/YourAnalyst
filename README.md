@@ -29,6 +29,7 @@ Check that everything is up: `tests/demo_check.sh --chat` (every line must be âœ
 | `DB_USER`, `DB_PASSWORD` | db, n8n-init | Postgres login; n8n-init writes them into the `YA Postgres (local)` credential |
 | `N8N_ENCRYPTION_KEY` | n8n, n8n-init | Encrypts the stored credentials. Keep it: a new key makes the saved credentials unreadable |
 | `WEBHOOK_URL` | n8n | Public base URL of the webhooks (default `http://localhost:5678/`) |
+| `N8N_SECURE_COOKIE` | n8n | `false` by default so the editor also opens in Safari on plain http://localhost; set `true` behind HTTPS |
 | `N8N_EDITOR_BASE_URL` | n8n | Base of the execution links the Error Workflow stores (default `http://localhost:5678`) |
 | `YA_LLM_MODEL` | workflows | Chat model id, e.g. `qwen2.5-7b-instruct` |
 | `YA_LLM_EXTRA_BODY` | workflows | Extra JSON fields for the model request (`{}` for most models) |
