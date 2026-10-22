@@ -1,0 +1,87 @@
+# The whole backend runs in Docker: Postgres, the Python analysis API and self-hosted n8n
+# (no n8n Cloud). n8n-init imports the credentials and all workflows before n8n starts.
+# Start:  docker compose up -d      UI: http://localhost:5678
+# Only the LLM runs outside Docker (LM Studio on the Mac, reached via host.docker.internal:1234).
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: youranalyst
+    ports:
+      - "5433:5432"   # 5433 on the host to avoid clashing with a local Postgres
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      # Runs only on first start (empty volume), in filename order.
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./db/seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
+      - ./db/universes.sql:/docker-entrypoint-initdb.d/03_universes.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d youranalyst"]
+      interval: 5s
+      retries: 10
+
+  # Indicator analysis API; n8n calls it at http://analysis:8000.
+  # Failure demo: `docker compose stop analysis`.
+  analysis:
+    build: ./analysis
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+
+  # One-shot: credentials from .env + import and publish workflows/*.json, then exits.
+  n8n-init:
+    image: docker.n8n.io/n8nio/n8n:2.43.4
+    entrypoint: ["/bin/sh", "/workflows/bootstrap.sh"]
+    environment:
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      YA_LLM_URL: ${YA_LLM_URL:-http://host.docker.internal:1234/v1}
+      YA_LLM_API_KEY: ${YA_LLM_API_KEY:-lm-studio}
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./workflows:/workflows:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:2.43.4   # pinned: the workflows were built and tested on this version
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      GENERIC_TIMEZONE: Europe/Istanbul
+      TZ: Europe/Istanbul
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      # Public URL for webhooks; set to the tunnel URL for the demo.
+      WEBHOOK_URL: ${WEBHOOK_URL:-http://localhost:5678/}
+      # Base of the execution URLs the Error Workflow stores.
+      N8N_EDITOR_BASE_URL: ${N8N_EDITOR_BASE_URL:-http://localhost:5678}
+      N8N_RUNNERS_ENABLED: "true"
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      # Workflows read the chat model id from here ($env.YA_LLM_MODEL).
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      YA_LLM_MODEL: ${YA_LLM_MODEL:-qwen2.5-14b-instruct}
+      YA_LLM_EXTRA_BODY: ${YA_LLM_EXTRA_BODY:-{}}
+    extra_hosts:
+      # Lets workflows call the Python analysis API on the Mac as http://host.docker.internal:8000
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./workflows:/workflows   # exported workflow JSON, for import/export via CLI
+    depends_on:
+      db:
+        condition: service_healthy
+      n8n-init:
+        condition: service_completed_successfully
+      analysis:
+        condition: service_started
+
+volumes:
+  db_data:
+  n8n_data:

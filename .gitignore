@@ -1,0 +1,12 @@
+.env
+.DS_Store
+__pycache__/
+web/userdata.json
+web/pnl_*.json
+.venv/
+desktop/build/
+*.sqlite
+*.log
+# Docker data lives in named volumes (n8n_data, db_data); never commit a bind-mounted copy.
+n8n_data/
+db_data/
