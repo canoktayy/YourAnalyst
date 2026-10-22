@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2540" height="930" viewBox="0 0 2540 930" font-family="-apple-system, Helvetica, Arial, sans-serif">
+<rect width="2540" height="930" fill="#161616"/>
+<defs><pattern id="g" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#2a2a2a"/></pattern><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#8a867e"/></marker><marker id="e" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#d9634c"/></marker></defs>
+<rect width="2540" height="930" fill="url(#g)"/>
+<text x="24" y="40" fill="#ece9e3" font-size="22" font-weight="600">YA 7 – Dashboard page: load and save data</text>
+<text x="24" y="64" fill="#8a867e" font-size="13">18 nodes · drawn from workflows/dashboard_api.json · red = error output · dashed green = LLM used by an AI node</text>
+<path d="M170 170.0 C250.0 170.0 250.0 290.0 328 290.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M170 410.0 C250.0 410.0 250.0 290.0 328 290.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M410 290.0 C480.0 290.0 480.0 290.0 548 290.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M630 276.6666666666667 C700.0 276.6666666666667 700.0 270.0 768 270.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M630 303.3333333333333 C700.0 303.3333333333333 700.0 470.0 768 470.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M850 256.6666666666667 C920.0 256.6666666666667 920.0 410.0 988 410.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M850 283.3333333333333 C1480.0 283.3333333333333 1480.0 210.0 2108 210.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M1070 410.0 C1140.0 410.0 1140.0 410.0 1208 410.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M1290 396.6666666666667 C1360.0 396.6666666666667 1360.0 390.0 1428 390.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M1290 423.3333333333333 C1360.0 423.3333333333333 1360.0 610.0 1428 610.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M1510 366.0 C1590.0 366.0 1590.0 250.0 1668 250.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M1510 382.0 C1590.0 382.0 1590.0 410.0 1668 410.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M1510 398.0 C1590.0 398.0 1590.0 570.0 1668 570.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M1510 414.0 C1590.0 414.0 1590.0 730.0 1668 730.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M1750 730.0 C1820.0 730.0 1820.0 410.0 1888 410.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M1750 250.0 C1820.0 250.0 1820.0 410.0 1888 410.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M1750 410.0 C1820.0 410.0 1820.0 410.0 1888 410.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M1750 570.0 C1820.0 570.0 1820.0 410.0 1888 410.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M1970 396.6666666666667 C2040.0 396.6666666666667 2040.0 210.0 2108 210.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M1970 423.3333333333333 C2040.0 423.3333333333333 2040.0 590.0 2108 590.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M2190 210.0 C2260.0 210.0 2260.0 210.0 2328 210.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<rect x="90" y="130" width="80" height="80" rx="30" fill="#2b2320" stroke="#ea8a4f" stroke-width="2.5"/>
+<text x="130.0" y="174.0" text-anchor="middle" fill="#ea8a4f" font-size="10" font-weight="700" letter-spacing="0.5">TRIGGER</text>
+<text x="130.0" y="228" text-anchor="middle" fill="#ece9e3" font-size="13">Trigger: load</text>
+<text x="130.0" y="243" text-anchor="middle" fill="#ece9e3" font-size="13">dashboard (GET</text>
+<text x="130.0" y="258" text-anchor="middle" fill="#ece9e3" font-size="13">/ya-dashboard)</text>
+<rect x="90" y="370" width="80" height="80" rx="30" fill="#2b2320" stroke="#ea8a4f" stroke-width="2.5"/>
+<text x="130.0" y="414.0" text-anchor="middle" fill="#ea8a4f" font-size="10" font-weight="700" letter-spacing="0.5">TRIGGER</text>
+<text x="130.0" y="468" text-anchor="middle" fill="#ece9e3" font-size="13">Trigger: save</text>
+<text x="130.0" y="483" text-anchor="middle" fill="#ece9e3" font-size="13">form (POST</text>
+<text x="130.0" y="498" text-anchor="middle" fill="#ece9e3" font-size="13">/ya-record)</text>
+<rect x="330" y="250" width="80" height="80" rx="12" fill="#1d2633" stroke="#6fa3e0" stroke-width="2.5"/>
+<text x="370.0" y="294.0" text-anchor="middle" fill="#6fa3e0" font-size="10" font-weight="700" letter-spacing="0.5">POSTGRES</text>
+<text x="370.0" y="348" text-anchor="middle" fill="#ece9e3" font-size="13">DB: find user by</text>
+<text x="370.0" y="363" text-anchor="middle" fill="#ece9e3" font-size="13">token</text>
+<rect x="550" y="250" width="80" height="80" rx="12" fill="#2d2a1c" stroke="#d8b84a" stroke-width="2.5"/>
+<text x="590.0" y="294.0" text-anchor="middle" fill="#d8b84a" font-size="10" font-weight="700" letter-spacing="0.5">IF / SWITCH</text>
+<text x="590.0" y="348" text-anchor="middle" fill="#ece9e3" font-size="13">Token valid?</text>
+<rect x="770" y="430" width="80" height="80" rx="12" fill="#262626" stroke="#9a968e" stroke-width="2.5"/>
+<text x="810.0" y="474.0" text-anchor="middle" fill="#9a968e" font-size="10" font-weight="700" letter-spacing="0.5">REPLY</text>
+<text x="810.0" y="528" text-anchor="middle" fill="#ece9e3" font-size="13">Reply 401:</text>
+<text x="810.0" y="543" text-anchor="middle" fill="#ece9e3" font-size="13">invalid token</text>
+<rect x="770" y="230" width="80" height="80" rx="12" fill="#2d2a1c" stroke="#d8b84a" stroke-width="2.5"/>
+<text x="810.0" y="274.0" text-anchor="middle" fill="#d8b84a" font-size="10" font-weight="700" letter-spacing="0.5">IF / SWITCH</text>
+<text x="810.0" y="328" text-anchor="middle" fill="#ece9e3" font-size="13">Is it a form</text>
+<text x="810.0" y="343" text-anchor="middle" fill="#ece9e3" font-size="13">save?</text>
+<rect x="990" y="370" width="80" height="80" rx="12" fill="#222222" stroke="#7d7a74" stroke-width="2.5"/>
+<text x="1030.0" y="414.0" text-anchor="middle" fill="#7d7a74" font-size="10" font-weight="700" letter-spacing="0.5">CODE</text>
+<text x="1030.0" y="468" text-anchor="middle" fill="#ece9e3" font-size="13">Check form fields</text>
+<rect x="1210" y="370" width="80" height="80" rx="12" fill="#2d2a1c" stroke="#d8b84a" stroke-width="2.5"/>
+<text x="1250.0" y="414.0" text-anchor="middle" fill="#d8b84a" font-size="10" font-weight="700" letter-spacing="0.5">IF / SWITCH</text>
+<text x="1250.0" y="468" text-anchor="middle" fill="#ece9e3" font-size="13">Form fields OK?</text>
+<rect x="1430" y="570" width="80" height="80" rx="12" fill="#262626" stroke="#9a968e" stroke-width="2.5"/>
+<text x="1470.0" y="614.0" text-anchor="middle" fill="#9a968e" font-size="10" font-weight="700" letter-spacing="0.5">REPLY</text>
+<text x="1470.0" y="668" text-anchor="middle" fill="#ece9e3" font-size="13">Reply 400:</text>
+<text x="1470.0" y="683" text-anchor="middle" fill="#ece9e3" font-size="13">invalid form</text>
+<rect x="1430" y="350" width="80" height="80" rx="12" fill="#2d2a1c" stroke="#d8b84a" stroke-width="2.5"/>
+<text x="1470.0" y="394.0" text-anchor="middle" fill="#d8b84a" font-size="10" font-weight="700" letter-spacing="0.5">IF / SWITCH</text>
+<text x="1470.0" y="448" text-anchor="middle" fill="#ece9e3" font-size="13">Route by record</text>
+<text x="1470.0" y="463" text-anchor="middle" fill="#ece9e3" font-size="13">type</text>
+<rect x="1670" y="210" width="80" height="80" rx="12" fill="#1d2633" stroke="#6fa3e0" stroke-width="2.5"/>
+<text x="1710.0" y="254.0" text-anchor="middle" fill="#6fa3e0" font-size="10" font-weight="700" letter-spacing="0.5">POSTGRES</text>
+<text x="1710.0" y="308" text-anchor="middle" fill="#ece9e3" font-size="13">DB: save asset</text>
+<rect x="1670" y="370" width="80" height="80" rx="12" fill="#1d2633" stroke="#6fa3e0" stroke-width="2.5"/>
+<text x="1710.0" y="414.0" text-anchor="middle" fill="#6fa3e0" font-size="10" font-weight="700" letter-spacing="0.5">POSTGRES</text>
+<text x="1710.0" y="468" text-anchor="middle" fill="#ece9e3" font-size="13">DB: save debt</text>
+<rect x="1670" y="690" width="80" height="80" rx="12" fill="#1d2633" stroke="#6fa3e0" stroke-width="2.5"/>
+<text x="1710.0" y="734.0" text-anchor="middle" fill="#6fa3e0" font-size="10" font-weight="700" letter-spacing="0.5">POSTGRES</text>
+<text x="1710.0" y="788" text-anchor="middle" fill="#ece9e3" font-size="13">DB: save</text>
+<text x="1710.0" y="803" text-anchor="middle" fill="#ece9e3" font-size="13">watchlist item</text>
+<rect x="1670" y="530" width="80" height="80" rx="12" fill="#1d2633" stroke="#6fa3e0" stroke-width="2.5"/>
+<text x="1710.0" y="574.0" text-anchor="middle" fill="#6fa3e0" font-size="10" font-weight="700" letter-spacing="0.5">POSTGRES</text>
+<text x="1710.0" y="628" text-anchor="middle" fill="#ece9e3" font-size="13">DB: save stock</text>
+<text x="1710.0" y="643" text-anchor="middle" fill="#ece9e3" font-size="13">holding</text>
+<rect x="1890" y="370" width="80" height="80" rx="12" fill="#2d2a1c" stroke="#d8b84a" stroke-width="2.5"/>
+<text x="1930.0" y="414.0" text-anchor="middle" fill="#d8b84a" font-size="10" font-weight="700" letter-spacing="0.5">IF / SWITCH</text>
+<text x="1930.0" y="468" text-anchor="middle" fill="#ece9e3" font-size="13">Record found?</text>
+<rect x="2110" y="550" width="80" height="80" rx="12" fill="#262626" stroke="#9a968e" stroke-width="2.5"/>
+<text x="2150.0" y="594.0" text-anchor="middle" fill="#9a968e" font-size="10" font-weight="700" letter-spacing="0.5">REPLY</text>
+<text x="2150.0" y="648" text-anchor="middle" fill="#ece9e3" font-size="13">Reply 404: record</text>
+<text x="2150.0" y="663" text-anchor="middle" fill="#ece9e3" font-size="13">not found</text>
+<rect x="2110" y="170" width="80" height="80" rx="12" fill="#1d2633" stroke="#6fa3e0" stroke-width="2.5"/>
+<text x="2150.0" y="214.0" text-anchor="middle" fill="#6fa3e0" font-size="10" font-weight="700" letter-spacing="0.5">POSTGRES</text>
+<text x="2150.0" y="268" text-anchor="middle" fill="#ece9e3" font-size="13">DB: load</text>
+<text x="2150.0" y="283" text-anchor="middle" fill="#ece9e3" font-size="13">dashboard data</text>
+<rect x="2330" y="170" width="80" height="80" rx="12" fill="#262626" stroke="#9a968e" stroke-width="2.5"/>
+<text x="2370.0" y="214.0" text-anchor="middle" fill="#9a968e" font-size="10" font-weight="700" letter-spacing="0.5">REPLY</text>
+<text x="2370.0" y="268" text-anchor="middle" fill="#ece9e3" font-size="13">Reply: dashboard</text>
+<text x="2370.0" y="283" text-anchor="middle" fill="#ece9e3" font-size="13">data</text>
+</svg>

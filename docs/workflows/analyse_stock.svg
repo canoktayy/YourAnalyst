@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2120" height="810" viewBox="0 0 2120 810" font-family="-apple-system, Helvetica, Arial, sans-serif">
+<rect width="2120" height="810" fill="#161616"/>
+<defs><pattern id="g" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#2a2a2a"/></pattern><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#8a867e"/></marker><marker id="e" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#d9634c"/></marker></defs>
+<rect width="2120" height="810" fill="url(#g)"/>
+<text x="24" y="40" fill="#ece9e3" font-size="22" font-weight="600">YA 3 – Sub: analyse stocks with indicators</text>
+<text x="24" y="64" fill="#8a867e" font-size="13">14 nodes · drawn from workflows/analyse_stock.json · red = error output · dashed green = LLM used by an AI node</text>
+<path d="M170 290.0 C240.0 290.0 240.0 290.0 308 290.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M390 276.6666666666667 C470.0 276.6666666666667 470.0 170.0 548 170.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M390 303.3333333333333 C470.0 303.3333333333333 470.0 410.0 548 410.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M630 410.0 C700.0 410.0 700.0 410.0 768 410.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M630 156.66666666666666 C820.0 156.66666666666666 820.0 250.0 1008 250.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M630 183.33333333333334 C820.0 183.33333333333334 820.0 610.0 1008 610.0" fill="none" stroke="#d9634c" stroke-width="2" marker-end="url(#e)"/>
+<path d="M850 396.6666666666667 C930.0 396.6666666666667 930.0 250.0 1008 250.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M850 423.3333333333333 C930.0 423.3333333333333 930.0 610.0 1008 610.0" fill="none" stroke="#d9634c" stroke-width="2" marker-end="url(#e)"/>
+<path d="M1090 250.0 C1160.0 250.0 1160.0 250.0 1228 250.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M1310 250.0 C1390.0 250.0 1390.0 250.0 1468 250.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M1550 250.0 C1620.0 250.0 1620.0 250.0 1688 250.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M1770 250.0 C1840.0 250.0 1840.0 250.0 1908 250.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M1090 610.0 C1160.0 610.0 1160.0 610.0 1228 610.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M1310 610.0 C1390.0 610.0 1390.0 610.0 1468 610.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M1270.0 430 L1270.0 338" stroke="#5fbf8f" stroke-width="2" stroke-dasharray="6 5" fill="none"/>
+<rect x="90" y="250" width="80" height="80" rx="30" fill="#2b2320" stroke="#ea8a4f" stroke-width="2.5"/>
+<text x="130.0" y="294.0" text-anchor="middle" fill="#ea8a4f" font-size="10" font-weight="700" letter-spacing="0.5">TRIGGER</text>
+<text x="130.0" y="348" text-anchor="middle" fill="#ece9e3" font-size="13">Input: one stock</text>
+<text x="130.0" y="363" text-anchor="middle" fill="#ece9e3" font-size="13">or a ranking</text>
+<rect x="310" y="250" width="80" height="80" rx="12" fill="#2d2a1c" stroke="#d8b84a" stroke-width="2.5"/>
+<text x="350.0" y="294.0" text-anchor="middle" fill="#d8b84a" font-size="10" font-weight="700" letter-spacing="0.5">IF / SWITCH</text>
+<text x="350.0" y="348" text-anchor="middle" fill="#ece9e3" font-size="13">Route: one stock</text>
+<text x="350.0" y="363" text-anchor="middle" fill="#ece9e3" font-size="13">or ranking</text>
+<rect x="550" y="130" width="80" height="80" rx="12" fill="#2a2433" stroke="#b08ae0" stroke-width="2.5"/>
+<text x="590.0" y="174.0" text-anchor="middle" fill="#b08ae0" font-size="10" font-weight="700" letter-spacing="0.5">HTTP</text>
+<text x="590.0" y="228" text-anchor="middle" fill="#ece9e3" font-size="13">API: analyse one</text>
+<text x="590.0" y="243" text-anchor="middle" fill="#ece9e3" font-size="13">stock</text>
+<rect x="550" y="370" width="80" height="80" rx="12" fill="#1d2633" stroke="#6fa3e0" stroke-width="2.5"/>
+<text x="590.0" y="414.0" text-anchor="middle" fill="#6fa3e0" font-size="10" font-weight="700" letter-spacing="0.5">POSTGRES</text>
+<text x="590.0" y="468" text-anchor="middle" fill="#ece9e3" font-size="13">DB: stocks in</text>
+<text x="590.0" y="483" text-anchor="middle" fill="#ece9e3" font-size="13">chosen universe</text>
+<rect x="770" y="370" width="80" height="80" rx="12" fill="#2a2433" stroke="#b08ae0" stroke-width="2.5"/>
+<text x="810.0" y="414.0" text-anchor="middle" fill="#b08ae0" font-size="10" font-weight="700" letter-spacing="0.5">HTTP</text>
+<text x="810.0" y="468" text-anchor="middle" fill="#ece9e3" font-size="13">API: score and</text>
+<text x="810.0" y="483" text-anchor="middle" fill="#ece9e3" font-size="13">rank stocks</text>
+<rect x="1010" y="210" width="80" height="80" rx="12" fill="#222222" stroke="#7d7a74" stroke-width="2.5"/>
+<text x="1050.0" y="254.0" text-anchor="middle" fill="#7d7a74" font-size="10" font-weight="700" letter-spacing="0.5">CODE</text>
+<text x="1050.0" y="308" text-anchor="middle" fill="#ece9e3" font-size="13">Shape API result</text>
+<rect x="1230" y="210" width="80" height="80" rx="12" fill="#1f2a24" stroke="#5fbf8f" stroke-width="2.5"/>
+<text x="1270.0" y="254.0" text-anchor="middle" fill="#5fbf8f" font-size="10" font-weight="700" letter-spacing="0.5">AI</text>
+<text x="1270.0" y="308" text-anchor="middle" fill="#ece9e3" font-size="13">AI: explain top</text>
+<text x="1270.0" y="323" text-anchor="middle" fill="#ece9e3" font-size="13">results</text>
+<circle cx="1270.0" cy="470.0" r="40.0" fill="#1f2a24" stroke="#5fbf8f" stroke-width="2.5"/>
+<text x="1270.0" y="474.0" text-anchor="middle" fill="#5fbf8f" font-size="10" font-weight="700" letter-spacing="0.5">LLM</text>
+<text x="1270.0" y="528" text-anchor="middle" fill="#ece9e3" font-size="13">LLM for</text>
+<text x="1270.0" y="543" text-anchor="middle" fill="#ece9e3" font-size="13">explanation</text>
+<rect x="1470" y="210" width="80" height="80" rx="12" fill="#222222" stroke="#7d7a74" stroke-width="2.5"/>
+<text x="1510.0" y="254.0" text-anchor="middle" fill="#7d7a74" font-size="10" font-weight="700" letter-spacing="0.5">CODE</text>
+<text x="1510.0" y="308" text-anchor="middle" fill="#ece9e3" font-size="13">Build analysis</text>
+<text x="1510.0" y="323" text-anchor="middle" fill="#ece9e3" font-size="13">reply</text>
+<rect x="1690" y="210" width="80" height="80" rx="12" fill="#1d2633" stroke="#6fa3e0" stroke-width="2.5"/>
+<text x="1730.0" y="254.0" text-anchor="middle" fill="#6fa3e0" font-size="10" font-weight="700" letter-spacing="0.5">POSTGRES</text>
+<text x="1730.0" y="308" text-anchor="middle" fill="#ece9e3" font-size="13">DB: save analysis</text>
+<rect x="1910" y="210" width="80" height="80" rx="12" fill="#222222" stroke="#7d7a74" stroke-width="2.5"/>
+<text x="1950.0" y="254.0" text-anchor="middle" fill="#7d7a74" font-size="10" font-weight="700" letter-spacing="0.5">CODE</text>
+<text x="1950.0" y="308" text-anchor="middle" fill="#ece9e3" font-size="13">Return result to</text>
+<text x="1950.0" y="323" text-anchor="middle" fill="#ece9e3" font-size="13">caller</text>
+<rect x="1010" y="570" width="80" height="80" rx="12" fill="#222222" stroke="#7d7a74" stroke-width="2.5"/>
+<text x="1050.0" y="614.0" text-anchor="middle" fill="#7d7a74" font-size="10" font-weight="700" letter-spacing="0.5">CODE</text>
+<text x="1050.0" y="668" text-anchor="middle" fill="#ece9e3" font-size="13">Describe API</text>
+<text x="1050.0" y="683" text-anchor="middle" fill="#ece9e3" font-size="13">failure</text>
+<rect x="1230" y="570" width="80" height="80" rx="12" fill="#1d2633" stroke="#6fa3e0" stroke-width="2.5"/>
+<text x="1270.0" y="614.0" text-anchor="middle" fill="#6fa3e0" font-size="10" font-weight="700" letter-spacing="0.5">POSTGRES</text>
+<text x="1270.0" y="668" text-anchor="middle" fill="#ece9e3" font-size="13">DB: log API</text>
+<text x="1270.0" y="683" text-anchor="middle" fill="#ece9e3" font-size="13">failure</text>
+<rect x="1470" y="570" width="80" height="80" rx="12" fill="#222222" stroke="#7d7a74" stroke-width="2.5"/>
+<text x="1510.0" y="614.0" text-anchor="middle" fill="#7d7a74" font-size="10" font-weight="700" letter-spacing="0.5">CODE</text>
+<text x="1510.0" y="668" text-anchor="middle" fill="#ece9e3" font-size="13">Reply: analysis</text>
+<text x="1510.0" y="683" text-anchor="middle" fill="#ece9e3" font-size="13">unavailable</text>
+</svg>

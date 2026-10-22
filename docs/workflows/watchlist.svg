@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2680" height="770" viewBox="0 0 2680 770" font-family="-apple-system, Helvetica, Arial, sans-serif">
+<rect width="2680" height="770" fill="#161616"/>
+<defs><pattern id="g" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#2a2a2a"/></pattern><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#8a867e"/></marker><marker id="e" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#d9634c"/></marker></defs>
+<rect width="2680" height="770" fill="url(#g)"/>
+<text x="24" y="40" fill="#ece9e3" font-size="22" font-weight="600">YA 4 – Sub: add or remove watchlist stocks</text>
+<text x="24" y="64" fill="#8a867e" font-size="13">12 nodes · drawn from workflows/watchlist.json · red = error output · dashed green = LLM used by an AI node</text>
+<path d="M170 450.0 C240.0 450.0 240.0 450.0 308 450.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M390 436.6666666666667 C590.0 436.6666666666667 590.0 170.0 788 170.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M390 463.3333333333333 C470.0 463.3333333333333 470.0 570.0 548 570.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M870 170.0 C950.0 170.0 950.0 170.0 1028 170.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M1110 170.0 C1190.0 170.0 1190.0 170.0 1268 170.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M1350 170.0 C1430.0 170.0 1430.0 330.0 1508 330.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M1590 330.0 C1670.0 330.0 1670.0 330.0 1748 330.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M1830 330.0 C1910.0 330.0 1910.0 330.0 1988 330.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M2070 330.0 C2150.0 330.0 2150.0 330.0 2228 330.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M2310 330.0 C2390.0 330.0 2390.0 330.0 2468 330.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M630 570.0 C710.0 570.0 710.0 570.0 788 570.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<rect x="90" y="410" width="80" height="80" rx="30" fill="#2b2320" stroke="#ea8a4f" stroke-width="2.5"/>
+<text x="130.0" y="454.0" text-anchor="middle" fill="#ea8a4f" font-size="10" font-weight="700" letter-spacing="0.5">TRIGGER</text>
+<text x="130.0" y="508" text-anchor="middle" fill="#ece9e3" font-size="13">Input: add or</text>
+<text x="130.0" y="523" text-anchor="middle" fill="#ece9e3" font-size="13">remove</text>
+<rect x="310" y="410" width="80" height="80" rx="12" fill="#2d2a1c" stroke="#d8b84a" stroke-width="2.5"/>
+<text x="350.0" y="454.0" text-anchor="middle" fill="#d8b84a" font-size="10" font-weight="700" letter-spacing="0.5">IF / SWITCH</text>
+<text x="350.0" y="508" text-anchor="middle" fill="#ece9e3" font-size="13">Route: add or</text>
+<text x="350.0" y="523" text-anchor="middle" fill="#ece9e3" font-size="13">remove</text>
+<rect x="790" y="130" width="80" height="80" rx="12" fill="#222222" stroke="#7d7a74" stroke-width="2.5"/>
+<text x="830.0" y="174.0" text-anchor="middle" fill="#7d7a74" font-size="10" font-weight="700" letter-spacing="0.5">CODE</text>
+<text x="830.0" y="228" text-anchor="middle" fill="#ece9e3" font-size="13">One item per name</text>
+<rect x="1030" y="130" width="80" height="80" rx="12" fill="#2a2433" stroke="#b08ae0" stroke-width="2.5"/>
+<text x="1070.0" y="174.0" text-anchor="middle" fill="#b08ae0" font-size="10" font-weight="700" letter-spacing="0.5">HTTP</text>
+<text x="1070.0" y="228" text-anchor="middle" fill="#ece9e3" font-size="13">API: find ticker</text>
+<text x="1070.0" y="243" text-anchor="middle" fill="#ece9e3" font-size="13">by name (Yahoo)</text>
+<rect x="1270" y="130" width="80" height="80" rx="12" fill="#222222" stroke="#7d7a74" stroke-width="2.5"/>
+<text x="1310.0" y="174.0" text-anchor="middle" fill="#7d7a74" font-size="10" font-weight="700" letter-spacing="0.5">CODE</text>
+<text x="1310.0" y="228" text-anchor="middle" fill="#ece9e3" font-size="13">Merge found</text>
+<text x="1310.0" y="243" text-anchor="middle" fill="#ece9e3" font-size="13">tickers</text>
+<rect x="1510" y="290" width="80" height="80" rx="12" fill="#222222" stroke="#7d7a74" stroke-width="2.5"/>
+<text x="1550.0" y="334.0" text-anchor="middle" fill="#7d7a74" font-size="10" font-weight="700" letter-spacing="0.5">CODE</text>
+<text x="1550.0" y="388" text-anchor="middle" fill="#ece9e3" font-size="13">One item per</text>
+<text x="1550.0" y="403" text-anchor="middle" fill="#ece9e3" font-size="13">ticker</text>
+<rect x="1750" y="290" width="80" height="80" rx="12" fill="#2a2433" stroke="#b08ae0" stroke-width="2.5"/>
+<text x="1790.0" y="334.0" text-anchor="middle" fill="#b08ae0" font-size="10" font-weight="700" letter-spacing="0.5">HTTP</text>
+<text x="1790.0" y="388" text-anchor="middle" fill="#ece9e3" font-size="13">API: check ticker</text>
+<text x="1790.0" y="403" text-anchor="middle" fill="#ece9e3" font-size="13">exists (Yahoo)</text>
+<rect x="1990" y="290" width="80" height="80" rx="12" fill="#222222" stroke="#7d7a74" stroke-width="2.5"/>
+<text x="2030.0" y="334.0" text-anchor="middle" fill="#7d7a74" font-size="10" font-weight="700" letter-spacing="0.5">CODE</text>
+<text x="2030.0" y="388" text-anchor="middle" fill="#ece9e3" font-size="13">Keep only valid</text>
+<text x="2030.0" y="403" text-anchor="middle" fill="#ece9e3" font-size="13">tickers</text>
+<rect x="2230" y="290" width="80" height="80" rx="12" fill="#1d2633" stroke="#6fa3e0" stroke-width="2.5"/>
+<text x="2270.0" y="334.0" text-anchor="middle" fill="#6fa3e0" font-size="10" font-weight="700" letter-spacing="0.5">POSTGRES</text>
+<text x="2270.0" y="388" text-anchor="middle" fill="#ece9e3" font-size="13">DB: add to</text>
+<text x="2270.0" y="403" text-anchor="middle" fill="#ece9e3" font-size="13">watchlist</text>
+<rect x="2470" y="290" width="80" height="80" rx="12" fill="#222222" stroke="#7d7a74" stroke-width="2.5"/>
+<text x="2510.0" y="334.0" text-anchor="middle" fill="#7d7a74" font-size="10" font-weight="700" letter-spacing="0.5">CODE</text>
+<text x="2510.0" y="388" text-anchor="middle" fill="#ece9e3" font-size="13">Reply: added +</text>
+<text x="2510.0" y="403" text-anchor="middle" fill="#ece9e3" font-size="13">prices</text>
+<rect x="550" y="530" width="80" height="80" rx="12" fill="#1d2633" stroke="#6fa3e0" stroke-width="2.5"/>
+<text x="590.0" y="574.0" text-anchor="middle" fill="#6fa3e0" font-size="10" font-weight="700" letter-spacing="0.5">POSTGRES</text>
+<text x="590.0" y="628" text-anchor="middle" fill="#ece9e3" font-size="13">DB: remove from</text>
+<text x="590.0" y="643" text-anchor="middle" fill="#ece9e3" font-size="13">watchlist</text>
+<rect x="790" y="530" width="80" height="80" rx="12" fill="#222222" stroke="#7d7a74" stroke-width="2.5"/>
+<text x="830.0" y="574.0" text-anchor="middle" fill="#7d7a74" font-size="10" font-weight="700" letter-spacing="0.5">CODE</text>
+<text x="830.0" y="628" text-anchor="middle" fill="#ece9e3" font-size="13">Reply: removed</text>
+</svg>

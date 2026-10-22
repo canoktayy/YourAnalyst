@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1260" height="590" viewBox="0 0 1260 590" font-family="-apple-system, Helvetica, Arial, sans-serif">
+<rect width="1260" height="590" fill="#161616"/>
+<defs><pattern id="g" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#2a2a2a"/></pattern><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#8a867e"/></marker><marker id="e" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#d9634c"/></marker></defs>
+<rect width="1260" height="590" fill="url(#g)"/>
+<text x="24" y="40" fill="#ece9e3" font-size="22" font-weight="600">YA 5 – Sub: answer a question about my money</text>
+<text x="24" y="64" fill="#8a867e" font-size="13">6 nodes · drawn from workflows/answer_question.json · red = error output · dashed green = LLM used by an AI node</text>
+<path d="M170 170.0 C240.0 170.0 240.0 170.0 308 170.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M390 170.0 C470.0 170.0 470.0 170.0 548 170.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M630 170.0 C710.0 170.0 710.0 170.0 788 170.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M870 170.0 C960.0 170.0 960.0 170.0 1048 170.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M830.0 350 L830.0 258" stroke="#5fbf8f" stroke-width="2" stroke-dasharray="6 5" fill="none"/>
+<rect x="90" y="130" width="80" height="80" rx="30" fill="#2b2320" stroke="#ea8a4f" stroke-width="2.5"/>
+<text x="130.0" y="174.0" text-anchor="middle" fill="#ea8a4f" font-size="10" font-weight="700" letter-spacing="0.5">TRIGGER</text>
+<text x="130.0" y="228" text-anchor="middle" fill="#ece9e3" font-size="13">Input: question</text>
+<rect x="310" y="130" width="80" height="80" rx="12" fill="#1d2633" stroke="#6fa3e0" stroke-width="2.5"/>
+<text x="350.0" y="174.0" text-anchor="middle" fill="#6fa3e0" font-size="10" font-weight="700" letter-spacing="0.5">POSTGRES</text>
+<text x="350.0" y="228" text-anchor="middle" fill="#ece9e3" font-size="13">DB: portfolio</text>
+<text x="350.0" y="243" text-anchor="middle" fill="#ece9e3" font-size="13">snapshot</text>
+<rect x="550" y="130" width="80" height="80" rx="12" fill="#222222" stroke="#7d7a74" stroke-width="2.5"/>
+<text x="590.0" y="174.0" text-anchor="middle" fill="#7d7a74" font-size="10" font-weight="700" letter-spacing="0.5">CODE</text>
+<text x="590.0" y="228" text-anchor="middle" fill="#ece9e3" font-size="13">Compute answer in</text>
+<text x="590.0" y="243" text-anchor="middle" fill="#ece9e3" font-size="13">code</text>
+<rect x="790" y="130" width="80" height="80" rx="12" fill="#1f2a24" stroke="#5fbf8f" stroke-width="2.5"/>
+<text x="830.0" y="174.0" text-anchor="middle" fill="#5fbf8f" font-size="10" font-weight="700" letter-spacing="0.5">AI</text>
+<text x="830.0" y="228" text-anchor="middle" fill="#ece9e3" font-size="13">AI: word the</text>
+<text x="830.0" y="243" text-anchor="middle" fill="#ece9e3" font-size="13">answer</text>
+<circle cx="830.0" cy="390.0" r="40.0" fill="#1f2a24" stroke="#5fbf8f" stroke-width="2.5"/>
+<text x="830.0" y="394.0" text-anchor="middle" fill="#5fbf8f" font-size="10" font-weight="700" letter-spacing="0.5">LLM</text>
+<text x="830.0" y="448" text-anchor="middle" fill="#ece9e3" font-size="13">LLM for answer</text>
+<rect x="1050" y="130" width="80" height="80" rx="12" fill="#222222" stroke="#7d7a74" stroke-width="2.5"/>
+<text x="1090.0" y="174.0" text-anchor="middle" fill="#7d7a74" font-size="10" font-weight="700" letter-spacing="0.5">CODE</text>
+<text x="1090.0" y="228" text-anchor="middle" fill="#ece9e3" font-size="13">Check answer</text>
+<text x="1090.0" y="243" text-anchor="middle" fill="#ece9e3" font-size="13">numbers</text>
+<text x="1090.0" y="258" text-anchor="middle" fill="#ece9e3" font-size="13">(fallback)</text>
+</svg>

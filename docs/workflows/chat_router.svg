@@ -1,0 +1,249 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="4640" height="2190" viewBox="0 0 4640 2190" font-family="-apple-system, Helvetica, Arial, sans-serif">
+<rect width="4640" height="2190" fill="#161616"/>
+<defs><pattern id="g" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#2a2a2a"/></pattern><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#8a867e"/></marker><marker id="e" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#d9634c"/></marker></defs>
+<rect width="4640" height="2190" fill="url(#g)"/>
+<text x="24" y="40" fill="#ece9e3" font-size="22" font-weight="600">YA 1 – Chat: understand and route a message</text>
+<text x="24" y="64" fill="#8a867e" font-size="13">45 nodes · drawn from workflows/chat_router.json · red = error output · dashed green = LLM used by an AI node</text>
+<path d="M170 630.0 C240.0 630.0 240.0 630.0 308 630.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M390 630.0 C460.0 630.0 460.0 630.0 528 630.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M610 616.6666666666666 C680.0 616.6666666666666 680.0 610.0 748 610.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M610 643.3333333333334 C680.0 643.3333333333334 680.0 810.0 748 810.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M830 610.0 C900.0 610.0 900.0 610.0 968 610.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M1050 596.6666666666666 C1120.0 596.6666666666666 1120.0 590.0 1188 590.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M1050 623.3333333333334 C1120.0 623.3333333333334 1120.0 810.0 1188 810.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M1270 590.0 C1340.0 590.0 1340.0 590.0 1408 590.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M1490 576.6666666666666 C1560.0 576.6666666666666 1560.0 570.0 1628 570.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M1490 603.3333333333334 C1560.0 603.3333333333334 1560.0 790.0 1628 790.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M1710 790.0 C1780.0 790.0 1780.0 790.0 1848 790.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M1710 570.0 C1780.0 570.0 1780.0 570.0 1848 570.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M1930 570.0 C2000.0 570.0 2000.0 570.0 2068 570.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M2150 546.0 C2230.0 546.0 2230.0 370.0 2308 370.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M2150 562.0 C2230.0 562.0 2230.0 770.0 2308 770.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M2150 578.0 C2230.0 578.0 2230.0 770.0 2308 770.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M2150 594.0 C2720.0 594.0 2720.0 730.0 3288 730.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M2390 370.0 C2470.0 370.0 2470.0 370.0 2548 370.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M2630 370.0 C2710.0 370.0 2710.0 370.0 2788 370.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M2870 335.3333333333333 C2960.0 335.3333333333333 2960.0 170.0 3048 170.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M2870 340.6666666666667 C2960.0 340.6666666666667 2960.0 370.0 3048 370.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M2870 346.0 C2960.0 346.0 2960.0 370.0 3048 370.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M2870 351.3333333333333 C2960.0 351.3333333333333 2960.0 550.0 3048 550.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M2870 356.6666666666667 C3080.0 356.6666666666667 3080.0 730.0 3288 730.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M2870 362.0 C3080.0 362.0 3080.0 730.0 3288 730.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M2870 367.3333333333333 C2960.0 367.3333333333333 2960.0 890.0 3048 890.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M2870 372.6666666666667 C2960.0 372.6666666666667 2960.0 170.0 3048 170.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M2870 378.0 C2960.0 378.0 2960.0 1070.0 3048 1070.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M2870 383.3333333333333 C2960.0 383.3333333333333 2960.0 1070.0 3048 1070.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M2870 388.6666666666667 C2960.0 388.6666666666667 2960.0 1250.0 3048 1250.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M2870 394.0 C2960.0 394.0 2960.0 1630.0 3048 1630.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M2870 399.3333333333333 C2960.0 399.3333333333333 2960.0 1810.0 3048 1810.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M2870 404.6666666666667 C2960.0 404.6666666666667 2960.0 1990.0 3048 1990.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M3130 1630.0 C3210.0 1630.0 3210.0 1630.0 3288 1630.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M3370 1630.0 C3410 1630.0 3250 370.0 3288 370.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M3130 1810.0 C3210.0 1810.0 3210.0 1810.0 3288 1810.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M3370 1810.0 C3460.0 1810.0 3460.0 490.0 3548 490.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M3130 1990.0 C3210.0 1990.0 3210.0 1990.0 3288 1990.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M3370 1990.0 C3460.0 1990.0 3460.0 490.0 3548 490.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M3130 1250.0 C3210.0 1250.0 3210.0 1250.0 3288 1250.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M3370 1250.0 C3790.0 1250.0 3790.0 490.0 4208 490.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M3630 490.0 C3700.0 490.0 3700.0 490.0 3768 490.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M3850 490.0 C3920.0 490.0 3920.0 490.0 3988 490.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M4070 490.0 C4140.0 490.0 4140.0 490.0 4208 490.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M3130 1070.0 C3210.0 1070.0 3210.0 1070.0 3288 1070.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M3370 1070.0 C3460.0 1070.0 3460.0 490.0 3548 490.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M3130 890.0 C3210.0 890.0 3210.0 890.0 3288 890.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M3370 890.0 C3460.0 890.0 3460.0 490.0 3548 490.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M3130 170.0 C3210.0 170.0 3210.0 170.0 3288 170.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M2390 770.0 C2840.0 770.0 2840.0 170.0 3288 170.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M3130 370.0 C3210.0 370.0 3210.0 370.0 3288 370.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M3130 550.0 C3210.0 550.0 3210.0 550.0 3288 550.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M3370 170.0 C3460.0 170.0 3460.0 490.0 3548 490.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M3370 370.0 C3460.0 370.0 3460.0 490.0 3548 490.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M3370 550.0 C3460.0 550.0 3460.0 490.0 3548 490.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M3370 730.0 C3460.0 730.0 3460.0 490.0 3548 490.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M4290 490.0 C4360.0 490.0 4360.0 490.0 4428 490.0" fill="none" stroke="#8a867e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M2350.0 550 L2350.0 458" stroke="#5fbf8f" stroke-width="2" stroke-dasharray="6 5" fill="none"/>
+<path d="M3090.0 1410 L3090.0 1338" stroke="#5fbf8f" stroke-width="2" stroke-dasharray="6 5" fill="none"/>
+<path d="M3810.0 670 L3810.0 578" stroke="#5fbf8f" stroke-width="2" stroke-dasharray="6 5" fill="none"/>
+<rect x="90" y="590" width="80" height="80" rx="30" fill="#2b2320" stroke="#ea8a4f" stroke-width="2.5"/>
+<text x="130.0" y="634.0" text-anchor="middle" fill="#ea8a4f" font-size="10" font-weight="700" letter-spacing="0.5">TRIGGER</text>
+<text x="130.0" y="688" text-anchor="middle" fill="#ece9e3" font-size="13">Trigger: chat</text>
+<text x="130.0" y="703" text-anchor="middle" fill="#ece9e3" font-size="13">message (POST</text>
+<text x="130.0" y="718" text-anchor="middle" fill="#ece9e3" font-size="13">/ya-chat)</text>
+<rect x="310" y="590" width="80" height="80" rx="12" fill="#1d2633" stroke="#6fa3e0" stroke-width="2.5"/>
+<text x="350.0" y="634.0" text-anchor="middle" fill="#6fa3e0" font-size="10" font-weight="700" letter-spacing="0.5">POSTGRES</text>
+<text x="350.0" y="688" text-anchor="middle" fill="#ece9e3" font-size="13">DB: find user by</text>
+<text x="350.0" y="703" text-anchor="middle" fill="#ece9e3" font-size="13">token</text>
+<rect x="530" y="590" width="80" height="80" rx="12" fill="#2d2a1c" stroke="#d8b84a" stroke-width="2.5"/>
+<text x="570.0" y="634.0" text-anchor="middle" fill="#d8b84a" font-size="10" font-weight="700" letter-spacing="0.5">IF / SWITCH</text>
+<text x="570.0" y="688" text-anchor="middle" fill="#ece9e3" font-size="13">Token valid?</text>
+<rect x="750" y="770" width="80" height="80" rx="12" fill="#262626" stroke="#9a968e" stroke-width="2.5"/>
+<text x="790.0" y="814.0" text-anchor="middle" fill="#9a968e" font-size="10" font-weight="700" letter-spacing="0.5">REPLY</text>
+<text x="790.0" y="868" text-anchor="middle" fill="#ece9e3" font-size="13">Reply 401:</text>
+<text x="790.0" y="883" text-anchor="middle" fill="#ece9e3" font-size="13">invalid token</text>
+<rect x="750" y="570" width="80" height="80" rx="12" fill="#222222" stroke="#7d7a74" stroke-width="2.5"/>
+<text x="790.0" y="614.0" text-anchor="middle" fill="#7d7a74" font-size="10" font-weight="700" letter-spacing="0.5">CODE</text>
+<text x="790.0" y="668" text-anchor="middle" fill="#ece9e3" font-size="13">Check message</text>
+<text x="790.0" y="683" text-anchor="middle" fill="#ece9e3" font-size="13">format</text>
+<rect x="970" y="570" width="80" height="80" rx="12" fill="#2d2a1c" stroke="#d8b84a" stroke-width="2.5"/>
+<text x="1010.0" y="614.0" text-anchor="middle" fill="#d8b84a" font-size="10" font-weight="700" letter-spacing="0.5">IF / SWITCH</text>
+<text x="1010.0" y="668" text-anchor="middle" fill="#ece9e3" font-size="13">Message format</text>
+<text x="1010.0" y="683" text-anchor="middle" fill="#ece9e3" font-size="13">OK?</text>
+<rect x="1190" y="770" width="80" height="80" rx="12" fill="#262626" stroke="#9a968e" stroke-width="2.5"/>
+<text x="1230.0" y="814.0" text-anchor="middle" fill="#9a968e" font-size="10" font-weight="700" letter-spacing="0.5">REPLY</text>
+<text x="1230.0" y="868" text-anchor="middle" fill="#ece9e3" font-size="13">Reply 400:</text>
+<text x="1230.0" y="883" text-anchor="middle" fill="#ece9e3" font-size="13">invalid message</text>
+<rect x="1190" y="550" width="80" height="80" rx="12" fill="#1d2633" stroke="#6fa3e0" stroke-width="2.5"/>
+<text x="1230.0" y="594.0" text-anchor="middle" fill="#6fa3e0" font-size="10" font-weight="700" letter-spacing="0.5">POSTGRES</text>
+<text x="1230.0" y="648" text-anchor="middle" fill="#ece9e3" font-size="13">DB: log message</text>
+<text x="1230.0" y="663" text-anchor="middle" fill="#ece9e3" font-size="13">(dedup by</text>
+<text x="1230.0" y="678" text-anchor="middle" fill="#ece9e3" font-size="13">event_id)</text>
+<rect x="1410" y="550" width="80" height="80" rx="12" fill="#2d2a1c" stroke="#d8b84a" stroke-width="2.5"/>
+<text x="1450.0" y="594.0" text-anchor="middle" fill="#d8b84a" font-size="10" font-weight="700" letter-spacing="0.5">IF / SWITCH</text>
+<text x="1450.0" y="648" text-anchor="middle" fill="#ece9e3" font-size="13">New message, not</text>
+<text x="1450.0" y="663" text-anchor="middle" fill="#ece9e3" font-size="13">a duplicate?</text>
+<rect x="1630" y="750" width="80" height="80" rx="12" fill="#222222" stroke="#7d7a74" stroke-width="2.5"/>
+<text x="1670.0" y="794.0" text-anchor="middle" fill="#7d7a74" font-size="10" font-weight="700" letter-spacing="0.5">CODE</text>
+<text x="1670.0" y="848" text-anchor="middle" fill="#ece9e3" font-size="13">Get stored reply</text>
+<text x="1670.0" y="863" text-anchor="middle" fill="#ece9e3" font-size="13">of duplicate</text>
+<rect x="1850" y="750" width="80" height="80" rx="12" fill="#262626" stroke="#9a968e" stroke-width="2.5"/>
+<text x="1890.0" y="794.0" text-anchor="middle" fill="#9a968e" font-size="10" font-weight="700" letter-spacing="0.5">REPLY</text>
+<text x="1890.0" y="848" text-anchor="middle" fill="#ece9e3" font-size="13">Reply: stored</text>
+<text x="1890.0" y="863" text-anchor="middle" fill="#ece9e3" font-size="13">answer again</text>
+<rect x="1630" y="530" width="80" height="80" rx="12" fill="#1d2633" stroke="#6fa3e0" stroke-width="2.5"/>
+<text x="1670.0" y="574.0" text-anchor="middle" fill="#6fa3e0" font-size="10" font-weight="700" letter-spacing="0.5">POSTGRES</text>
+<text x="1670.0" y="628" text-anchor="middle" fill="#ece9e3" font-size="13">DB: load chat</text>
+<text x="1670.0" y="643" text-anchor="middle" fill="#ece9e3" font-size="13">memory and</text>
+<text x="1670.0" y="658" text-anchor="middle" fill="#ece9e3" font-size="13">context</text>
+<rect x="1850" y="530" width="80" height="80" rx="12" fill="#222222" stroke="#7d7a74" stroke-width="2.5"/>
+<text x="1890.0" y="574.0" text-anchor="middle" fill="#7d7a74" font-size="10" font-weight="700" letter-spacing="0.5">CODE</text>
+<text x="1890.0" y="628" text-anchor="middle" fill="#ece9e3" font-size="13">Build AI input,</text>
+<text x="1890.0" y="643" text-anchor="middle" fill="#ece9e3" font-size="13">detect yes/no</text>
+<rect x="2070" y="530" width="80" height="80" rx="12" fill="#2d2a1c" stroke="#d8b84a" stroke-width="2.5"/>
+<text x="2110.0" y="574.0" text-anchor="middle" fill="#d8b84a" font-size="10" font-weight="700" letter-spacing="0.5">IF / SWITCH</text>
+<text x="2110.0" y="628" text-anchor="middle" fill="#ece9e3" font-size="13">Route: yes / no /</text>
+<text x="2110.0" y="643" text-anchor="middle" fill="#ece9e3" font-size="13">new request</text>
+<rect x="2310" y="330" width="80" height="80" rx="12" fill="#1f2a24" stroke="#5fbf8f" stroke-width="2.5"/>
+<text x="2350.0" y="374.0" text-anchor="middle" fill="#5fbf8f" font-size="10" font-weight="700" letter-spacing="0.5">AI</text>
+<text x="2350.0" y="428" text-anchor="middle" fill="#ece9e3" font-size="13">AI 1: choose the</text>
+<text x="2350.0" y="443" text-anchor="middle" fill="#ece9e3" font-size="13">tool (JSON)</text>
+<circle cx="2350.0" cy="590.0" r="40.0" fill="#1f2a24" stroke="#5fbf8f" stroke-width="2.5"/>
+<text x="2350.0" y="594.0" text-anchor="middle" fill="#5fbf8f" font-size="10" font-weight="700" letter-spacing="0.5">LLM</text>
+<text x="2350.0" y="648" text-anchor="middle" fill="#ece9e3" font-size="13">LLM for AI 1</text>
+<rect x="2550" y="330" width="80" height="80" rx="12" fill="#222222" stroke="#7d7a74" stroke-width="2.5"/>
+<text x="2590.0" y="374.0" text-anchor="middle" fill="#7d7a74" font-size="10" font-weight="700" letter-spacing="0.5">CODE</text>
+<text x="2590.0" y="428" text-anchor="middle" fill="#ece9e3" font-size="13">Check AI JSON</text>
+<text x="2590.0" y="443" text-anchor="middle" fill="#ece9e3" font-size="13">against the</text>
+<text x="2590.0" y="458" text-anchor="middle" fill="#ece9e3" font-size="13">message</text>
+<rect x="2790" y="330" width="80" height="80" rx="12" fill="#2d2a1c" stroke="#d8b84a" stroke-width="2.5"/>
+<text x="2830.0" y="374.0" text-anchor="middle" fill="#d8b84a" font-size="10" font-weight="700" letter-spacing="0.5">IF / SWITCH</text>
+<text x="2830.0" y="428" text-anchor="middle" fill="#ece9e3" font-size="13">Route by intent</text>
+<rect x="3050" y="130" width="80" height="80" rx="12" fill="#222222" stroke="#7d7a74" stroke-width="2.5"/>
+<text x="3090.0" y="174.0" text-anchor="middle" fill="#7d7a74" font-size="10" font-weight="700" letter-spacing="0.5">CODE</text>
+<text x="3090.0" y="228" text-anchor="middle" fill="#ece9e3" font-size="13">Prepare record</text>
+<text x="3090.0" y="243" text-anchor="middle" fill="#ece9e3" font-size="13">input</text>
+<rect x="3290" y="130" width="80" height="80" rx="12" fill="#2a1f2a" stroke="#e07ab0" stroke-width="2.5"/>
+<text x="3330.0" y="174.0" text-anchor="middle" fill="#e07ab0" font-size="10" font-weight="700" letter-spacing="0.5">SUB</text>
+<text x="3330.0" y="228" text-anchor="middle" fill="#ece9e3" font-size="13">Run sub: save</text>
+<text x="3330.0" y="243" text-anchor="middle" fill="#ece9e3" font-size="13">financial record</text>
+<rect x="3050" y="330" width="80" height="80" rx="12" fill="#222222" stroke="#7d7a74" stroke-width="2.5"/>
+<text x="3090.0" y="374.0" text-anchor="middle" fill="#7d7a74" font-size="10" font-weight="700" letter-spacing="0.5">CODE</text>
+<text x="3090.0" y="428" text-anchor="middle" fill="#ece9e3" font-size="13">Prepare analysis</text>
+<text x="3090.0" y="443" text-anchor="middle" fill="#ece9e3" font-size="13">input</text>
+<rect x="3290" y="330" width="80" height="80" rx="12" fill="#2a1f2a" stroke="#e07ab0" stroke-width="2.5"/>
+<text x="3330.0" y="374.0" text-anchor="middle" fill="#e07ab0" font-size="10" font-weight="700" letter-spacing="0.5">SUB</text>
+<text x="3330.0" y="428" text-anchor="middle" fill="#ece9e3" font-size="13">Run sub: analyse</text>
+<text x="3330.0" y="443" text-anchor="middle" fill="#ece9e3" font-size="13">stocks</text>
+<rect x="3050" y="510" width="80" height="80" rx="12" fill="#1d2633" stroke="#6fa3e0" stroke-width="2.5"/>
+<text x="3090.0" y="554.0" text-anchor="middle" fill="#6fa3e0" font-size="10" font-weight="700" letter-spacing="0.5">POSTGRES</text>
+<text x="3090.0" y="608" text-anchor="middle" fill="#ece9e3" font-size="13">DB: list</text>
+<text x="3090.0" y="623" text-anchor="middle" fill="#ece9e3" font-size="13">accounts, debts,</text>
+<text x="3090.0" y="638" text-anchor="middle" fill="#ece9e3" font-size="13">stocks</text>
+<rect x="3290" y="510" width="80" height="80" rx="12" fill="#222222" stroke="#7d7a74" stroke-width="2.5"/>
+<text x="3330.0" y="554.0" text-anchor="middle" fill="#7d7a74" font-size="10" font-weight="700" letter-spacing="0.5">CODE</text>
+<text x="3330.0" y="608" text-anchor="middle" fill="#ece9e3" font-size="13">Format the list</text>
+<rect x="3290" y="690" width="80" height="80" rx="12" fill="#222222" stroke="#7d7a74" stroke-width="2.5"/>
+<text x="3330.0" y="734.0" text-anchor="middle" fill="#7d7a74" font-size="10" font-weight="700" letter-spacing="0.5">CODE</text>
+<text x="3330.0" y="788" text-anchor="middle" fill="#ece9e3" font-size="13">Reply text for</text>
+<text x="3330.0" y="803" text-anchor="middle" fill="#ece9e3" font-size="13">help / clarify</text>
+<rect x="3050" y="1210" width="80" height="80" rx="12" fill="#1f2a24" stroke="#5fbf8f" stroke-width="2.5"/>
+<text x="3090.0" y="1254.0" text-anchor="middle" fill="#5fbf8f" font-size="10" font-weight="700" letter-spacing="0.5">AI</text>
+<text x="3090.0" y="1308" text-anchor="middle" fill="#ece9e3" font-size="13">AI: small-talk</text>
+<text x="3090.0" y="1323" text-anchor="middle" fill="#ece9e3" font-size="13">reply</text>
+<circle cx="3090.0" cy="1450.0" r="40.0" fill="#1f2a24" stroke="#5fbf8f" stroke-width="2.5"/>
+<text x="3090.0" y="1454.0" text-anchor="middle" fill="#5fbf8f" font-size="10" font-weight="700" letter-spacing="0.5">LLM</text>
+<text x="3090.0" y="1508" text-anchor="middle" fill="#ece9e3" font-size="13">LLM for small</text>
+<text x="3090.0" y="1523" text-anchor="middle" fill="#ece9e3" font-size="13">talk</text>
+<rect x="3290" y="1210" width="80" height="80" rx="12" fill="#222222" stroke="#7d7a74" stroke-width="2.5"/>
+<text x="3330.0" y="1254.0" text-anchor="middle" fill="#7d7a74" font-size="10" font-weight="700" letter-spacing="0.5">CODE</text>
+<text x="3330.0" y="1308" text-anchor="middle" fill="#ece9e3" font-size="13">Format small-talk</text>
+<text x="3330.0" y="1323" text-anchor="middle" fill="#ece9e3" font-size="13">reply</text>
+<rect x="3050" y="850" width="80" height="80" rx="12" fill="#222222" stroke="#7d7a74" stroke-width="2.5"/>
+<text x="3090.0" y="894.0" text-anchor="middle" fill="#7d7a74" font-size="10" font-weight="700" letter-spacing="0.5">CODE</text>
+<text x="3090.0" y="948" text-anchor="middle" fill="#ece9e3" font-size="13">Prepare watchlist</text>
+<text x="3090.0" y="963" text-anchor="middle" fill="#ece9e3" font-size="13">input</text>
+<rect x="3050" y="1030" width="80" height="80" rx="12" fill="#222222" stroke="#7d7a74" stroke-width="2.5"/>
+<text x="3090.0" y="1074.0" text-anchor="middle" fill="#7d7a74" font-size="10" font-weight="700" letter-spacing="0.5">CODE</text>
+<text x="3090.0" y="1128" text-anchor="middle" fill="#ece9e3" font-size="13">Prepare question</text>
+<text x="3090.0" y="1143" text-anchor="middle" fill="#ece9e3" font-size="13">input</text>
+<rect x="3290" y="1030" width="80" height="80" rx="12" fill="#2a1f2a" stroke="#e07ab0" stroke-width="2.5"/>
+<text x="3330.0" y="1074.0" text-anchor="middle" fill="#e07ab0" font-size="10" font-weight="700" letter-spacing="0.5">SUB</text>
+<text x="3330.0" y="1128" text-anchor="middle" fill="#ece9e3" font-size="13">Run sub: answer</text>
+<text x="3330.0" y="1143" text-anchor="middle" fill="#ece9e3" font-size="13">question</text>
+<rect x="3290" y="850" width="80" height="80" rx="12" fill="#2a1f2a" stroke="#e07ab0" stroke-width="2.5"/>
+<text x="3330.0" y="894.0" text-anchor="middle" fill="#e07ab0" font-size="10" font-weight="700" letter-spacing="0.5">SUB</text>
+<text x="3330.0" y="948" text-anchor="middle" fill="#ece9e3" font-size="13">Run sub: update</text>
+<text x="3330.0" y="963" text-anchor="middle" fill="#ece9e3" font-size="13">watchlist</text>
+<rect x="2310" y="730" width="80" height="80" rx="12" fill="#222222" stroke="#7d7a74" stroke-width="2.5"/>
+<text x="2350.0" y="774.0" text-anchor="middle" fill="#7d7a74" font-size="10" font-weight="700" letter-spacing="0.5">CODE</text>
+<text x="2350.0" y="828" text-anchor="middle" fill="#ece9e3" font-size="13">Prepare yes/no</text>
+<text x="2350.0" y="843" text-anchor="middle" fill="#ece9e3" font-size="13">for pending</text>
+<text x="2350.0" y="858" text-anchor="middle" fill="#ece9e3" font-size="13">record</text>
+<rect x="3050" y="1590" width="80" height="80" rx="12" fill="#1d2633" stroke="#6fa3e0" stroke-width="2.5"/>
+<text x="3090.0" y="1634.0" text-anchor="middle" fill="#6fa3e0" font-size="10" font-weight="700" letter-spacing="0.5">POSTGRES</text>
+<text x="3090.0" y="1688" text-anchor="middle" fill="#ece9e3" font-size="13">DB: clear</text>
+<text x="3090.0" y="1703" text-anchor="middle" fill="#ece9e3" font-size="13">finished scan</text>
+<text x="3090.0" y="1718" text-anchor="middle" fill="#ece9e3" font-size="13">draft</text>
+<rect x="3290" y="1590" width="80" height="80" rx="12" fill="#222222" stroke="#7d7a74" stroke-width="2.5"/>
+<text x="3330.0" y="1634.0" text-anchor="middle" fill="#7d7a74" font-size="10" font-weight="700" letter-spacing="0.5">CODE</text>
+<text x="3330.0" y="1688" text-anchor="middle" fill="#ece9e3" font-size="13">Prepare scan</text>
+<text x="3330.0" y="1703" text-anchor="middle" fill="#ece9e3" font-size="13">input</text>
+<rect x="3050" y="1770" width="80" height="80" rx="12" fill="#1d2633" stroke="#6fa3e0" stroke-width="2.5"/>
+<text x="3090.0" y="1814.0" text-anchor="middle" fill="#6fa3e0" font-size="10" font-weight="700" letter-spacing="0.5">POSTGRES</text>
+<text x="3090.0" y="1868" text-anchor="middle" fill="#ece9e3" font-size="13">DB: save</text>
+<text x="3090.0" y="1883" text-anchor="middle" fill="#ece9e3" font-size="13">unfinished scan</text>
+<rect x="3290" y="1770" width="80" height="80" rx="12" fill="#222222" stroke="#7d7a74" stroke-width="2.5"/>
+<text x="3330.0" y="1814.0" text-anchor="middle" fill="#7d7a74" font-size="10" font-weight="700" letter-spacing="0.5">CODE</text>
+<text x="3330.0" y="1868" text-anchor="middle" fill="#ece9e3" font-size="13">Ask what the scan</text>
+<text x="3330.0" y="1883" text-anchor="middle" fill="#ece9e3" font-size="13">still needs</text>
+<rect x="3050" y="1950" width="80" height="80" rx="12" fill="#1d2633" stroke="#6fa3e0" stroke-width="2.5"/>
+<text x="3090.0" y="1994.0" text-anchor="middle" fill="#6fa3e0" font-size="10" font-weight="700" letter-spacing="0.5">POSTGRES</text>
+<text x="3090.0" y="2048" text-anchor="middle" fill="#ece9e3" font-size="13">DB: delete</text>
+<text x="3090.0" y="2063" text-anchor="middle" fill="#ece9e3" font-size="13">cancelled scan</text>
+<rect x="3290" y="1950" width="80" height="80" rx="12" fill="#222222" stroke="#7d7a74" stroke-width="2.5"/>
+<text x="3330.0" y="1994.0" text-anchor="middle" fill="#7d7a74" font-size="10" font-weight="700" letter-spacing="0.5">CODE</text>
+<text x="3330.0" y="2048" text-anchor="middle" fill="#ece9e3" font-size="13">Reply: scan</text>
+<text x="3330.0" y="2063" text-anchor="middle" fill="#ece9e3" font-size="13">cancelled</text>
+<rect x="3550" y="450" width="80" height="80" rx="12" fill="#222222" stroke="#7d7a74" stroke-width="2.5"/>
+<text x="3590.0" y="494.0" text-anchor="middle" fill="#7d7a74" font-size="10" font-weight="700" letter-spacing="0.5">CODE</text>
+<text x="3590.0" y="548" text-anchor="middle" fill="#ece9e3" font-size="13">Collect tool</text>
+<text x="3590.0" y="563" text-anchor="middle" fill="#ece9e3" font-size="13">result</text>
+<rect x="3770" y="450" width="80" height="80" rx="12" fill="#1f2a24" stroke="#5fbf8f" stroke-width="2.5"/>
+<text x="3810.0" y="494.0" text-anchor="middle" fill="#5fbf8f" font-size="10" font-weight="700" letter-spacing="0.5">AI</text>
+<text x="3810.0" y="548" text-anchor="middle" fill="#ece9e3" font-size="13">AI 2: write the</text>
+<text x="3810.0" y="563" text-anchor="middle" fill="#ece9e3" font-size="13">reply</text>
+<circle cx="3810.0" cy="710.0" r="40.0" fill="#1f2a24" stroke="#5fbf8f" stroke-width="2.5"/>
+<text x="3810.0" y="714.0" text-anchor="middle" fill="#5fbf8f" font-size="10" font-weight="700" letter-spacing="0.5">LLM</text>
+<text x="3810.0" y="768" text-anchor="middle" fill="#ece9e3" font-size="13">LLM for AI 2</text>
+<rect x="3990" y="450" width="80" height="80" rx="12" fill="#222222" stroke="#7d7a74" stroke-width="2.5"/>
+<text x="4030.0" y="494.0" text-anchor="middle" fill="#7d7a74" font-size="10" font-weight="700" letter-spacing="0.5">CODE</text>
+<text x="4030.0" y="548" text-anchor="middle" fill="#ece9e3" font-size="13">Check reply</text>
+<text x="4030.0" y="563" text-anchor="middle" fill="#ece9e3" font-size="13">numbers</text>
+<text x="4030.0" y="578" text-anchor="middle" fill="#ece9e3" font-size="13">(fallback)</text>
+<rect x="4210" y="450" width="80" height="80" rx="12" fill="#1d2633" stroke="#6fa3e0" stroke-width="2.5"/>
+<text x="4250.0" y="494.0" text-anchor="middle" fill="#6fa3e0" font-size="10" font-weight="700" letter-spacing="0.5">POSTGRES</text>
+<text x="4250.0" y="548" text-anchor="middle" fill="#ece9e3" font-size="13">DB: save reply,</text>
+<text x="4250.0" y="563" text-anchor="middle" fill="#ece9e3" font-size="13">mark done</text>
+<rect x="4430" y="450" width="80" height="80" rx="12" fill="#262626" stroke="#9a968e" stroke-width="2.5"/>
+<text x="4470.0" y="494.0" text-anchor="middle" fill="#9a968e" font-size="10" font-weight="700" letter-spacing="0.5">REPLY</text>
+<text x="4470.0" y="548" text-anchor="middle" fill="#ece9e3" font-size="13">Reply to chat</text>
+</svg>
