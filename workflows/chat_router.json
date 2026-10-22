@@ -1,0 +1,2150 @@
+{
+  "id": "YAchatRouter0001",
+  "name": "YA – Chat router",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ya-chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "POST /ya-chat",
+      "id": "aa949b3c-349e-57b2-b88d-619a90bb3da9",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "27cedeb2-241e-5f0f-8da9-9756fd2699b0"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select id as user_id, base_currency\nfrom app_user\nwhere api_token_hash = encode(digest($1::jsonb->>'token', 'sha256'), 'hex');",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify({ token: $json.headers['x-ya-token'] ?? null }) }}"
+        }
+      },
+      "name": "Auth user",
+      "id": "e0c550a7-cdd1-5317-8c50-e29df19599e6",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        220,
+        300
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "yaPgLocal0000001",
+          "name": "YA Postgres (local)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b6f8af9c-089b-5536-a357-ab7ff76e7f5e",
+              "leftValue": "={{ $json.user_id }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "name": "If: authenticated?",
+      "id": "52fac36f-f7f2-544c-bd63-bc0e451b996a",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": false, \"error\": \"Missing or invalid X-YA-Token\" } }}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "name": "Respond 401",
+      "id": "ba6a1ea3-fe90-5398-93f7-0e1b80b197fd",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const b = $('POST /ya-chat').first().json.body ?? {};\nconst event_id = String(b.event_id ?? '');\nconst text = String(b.text ?? '').trim();\nconst errors = [];\nif (!/^[A-Za-z0-9_.:\\-]{1,100}$/.test(event_id)) errors.push('event_id must be 1-100 chars of [A-Za-z0-9_.:-]');\nif (!text || text.length > 1000) errors.push('text must be 1-1000 characters');\nreturn [{ json: { valid: errors.length === 0, errors, event_id, text, user_id: $json.user_id, base_currency: $json.base_currency } }];\n"
+      },
+      "name": "Validate message",
+      "id": "eda3781f-c53a-581b-a60d-731b61652a37",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ca90d39d-079f-5dfe-a4a7-99d2a685ef2f",
+              "leftValue": "={{ $json.valid }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "name": "If: message valid?",
+      "id": "fedb68cc-6c57-50a1-becc-a22e6801af84",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": false, \"error\": \"Invalid message\", \"details\": $json.errors } }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "name": "Respond 400",
+      "id": "3adf7442-a4ac-528e-bb68-13016716b13d",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Idempotency: a replayed event_id hits the conflict, returns no request_id and the\n-- previous status/response instead (same statement snapshot, so a new row is never \"prior\").\nwith j as (select $1::jsonb as j),\nins as (\n    insert into request_log (user_id, event_id, channel, input_text, execution_id)\n    select (j->>'user_id')::uuid, j->>'event_id', 'web', j->>'text', j->>'execution_id' from j\n    on conflict (user_id, event_id) do nothing\n    returning id)\nselect (select id from ins) as request_id, r.status as prior_status, r.response as prior_response\nfrom j\nleft join request_log r on r.user_id = (j.j->>'user_id')::uuid and r.event_id = j.j->>'event_id';",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify({ ...$json, execution_id: $execution.id }) }}"
+        }
+      },
+      "name": "Register request",
+      "id": "27965bb2-ec46-55e0-9a72-19aaf6ee6267",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1100,
+        260
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "yaPgLocal0000001",
+          "name": "YA Postgres (local)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "db8642bf-0f61-5e93-b7ab-089f98679a41",
+              "leftValue": "={{ $json.request_id }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "name": "If: new event?",
+      "id": "4a19e7ed-56e1-5505-8cb6-a258756d4047",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1320,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const m = $('Validate message').first().json;\nconst r = $json;\nif (r.prior_response) return [{ json: { ...r.prior_response, replayed: true } }];\nreturn [{ json: { ok: true, replayed: true, status: r.prior_status, intent: null, data: null,\n  reply: 'This message is already being processed.' } }];\n"
+      },
+      "name": "Replay stored reply",
+      "id": "059c1163-5c5f-501d-8c22-812a2bb93f28",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "name": "Respond replay",
+      "id": "e601cca4-6598-5ed2-87cf-b494b61d7c04",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1760,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- What the router needs besides the message: an open confirmation, the user's stocks\n-- (summed per symbol, with the latest price), cash accounts and FX rates. Only symbol and\n-- account NAMES are shown to the LLM; the numbers are used by code (sale proposal).\nwith u as (select ($1::jsonb->>'user_id')::uuid as id)\nselect (\n    select row_to_json(p) from (\n        select record_type, payload, expires_at from pending_confirmation, u\n        where user_id = u.id and status = 'pending' and expires_at > now()\n    ) p) as pending,\n    coalesce((\n        select json_agg(o order by o.symbol) from (\n            select v.symbol, sum(v.quantity) as quantity, max(v.last_price) as price,\n                   max(v.price_currency) as price_currency, max(v.price_status) as price_status\n            from v_position v, u where v.user_id = u.id group by v.symbol) o), '[]'::json) as owned,\n    coalesce((\n        select json_agg(json_build_object('id', a.id, 'name', a.name, 'currency', a.currency, 'kind', a.kind)\n                        order by a.created_at)\n        from asset a, u where a.user_id = u.id), '[]'::json) as accounts,\n    (select json_object_agg(currency, usd_per_unit) from fx_rate) as fx,\n    -- Conversation memory: the last 6 finished exchanges (the current one is still 'received').\n    coalesce((\n        select json_agg(h order by h.created_at) from (\n            select r.input_text, left(r.response->>'reply', 280) as reply, r.created_at\n            from request_log r, u\n            where r.user_id = u.id and r.status <> 'received' and r.input_text is not null\n            order by r.created_at desc limit 6) h), '[]'::json) as history,\n    (select row_to_json(d) from scan_draft d, u\n     where d.user_id = u.id and d.updated_at > now() - interval '20 minutes') as scan_draft;",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify({ user_id: $('Validate message').first().json.user_id }) }}"
+        }
+      },
+      "name": "Load context",
+      "id": "1f3bb8e1-6a82-5688-ae53-28cd4c268dd9",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1540,
+        240
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "yaPgLocal0000001",
+          "name": "YA Postgres (local)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Deterministic routing for confirmation answers; everything else goes to the LLM.\nconst m = $('Validate message').first().json;\nconst request_id = $('Register request').first().json.request_id;\nconst pending = $json.pending;\nconst t = m.text.toLowerCase().replace(/[.!?\\s]+$/, '');\nconst YES = /^(yes|y|ok|okay|confirm|sure|save)$/;\nconst NO = /^(no|n|cancel|nope)$/;\nconst draft = $json.scan_draft ?? null;\nlet route = 'ai';\n// yes/no answer a pending confirmation; with a scan being set up they go to the LLM instead\nif (YES.test(t)) route = pending ? 'confirm' : draft ? 'ai' : 'no_pending';\nelse if (NO.test(t)) route = pending ? 'cancel' : draft ? 'ai' : 'no_pending';\n// The orchestrator sees which stocks and accounts exist (names only), so \"sell my\n// Apple shares\" maps to AAPL and \"if Apple hits 1000\" needs no follow-up question.\nconst owned = $json.owned ?? [], accounts = $json.accounts ?? [];\n// Memory: recent exchanges and any scan being set up, so short answers (\"S&P\", \"all of\n// them\", \"10\") are read as answers to the assistant's last question.\nconst history = $json.history ?? [];\nconst convo = history.map(h => `User: ${h.input_text}\\nAssistant: ${String(h.reply ?? '').replace(/\\s+/g, ' ')}`).join('\\n');\nconst draftLine = draft\n  ? `Scan being set up: mode=${draft.mode ?? '?'}, universe=${draft.universe ?? '?'}, symbol=${draft.symbol ?? '?'}, `\n    + `indicators=${draft.indicators?.join('+') || '?'}, top=${draft.top ?? '?'}\\n` : '';\nconst llm_input = (convo ? `Recent conversation (oldest first):\\n${convo}\\n\\n` : '') + draftLine\n  + `Owned stocks: ${owned.map(o => o.symbol).join(', ') || 'none'}\\n`\n  + `Accounts: ${accounts.map(a => a.name).join(', ') || 'none'}\\n`\n  + `Message: ${m.text}`;\nreturn [{ json: { route, request_id, event_id: m.event_id, user_id: m.user_id, text: m.text, llm_input,\n  pending, owned, accounts, fx: $json.fx ?? {}, history, scan_draft: draft } }];\n"
+      },
+      "name": "Pre-route",
+      "id": "a117dd09-ffdd-5252-824c-c65f269fe7bf",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "7feb21cd-3daa-5107-852b-3664c1af7733",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "ai",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ai"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "c419413f-933d-5e68-8bea-9bb14106a92e",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "confirm",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "confirm"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "e1e53065-894d-5c1c-96c3-391335f22272",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "cancel",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "cancel"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "70a54b43-6d3c-5141-be50-6fd4bdf05af1",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "no_pending",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "no_pending"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "name": "Switch: route",
+      "id": "02843b9e-2a94-5fef-b648-6a5f1b9adff1",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1980,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.llm_input }}",
+        "hasOutputParser": false,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You are the orchestrator of a personal-finance assistant. You read ONE chat message and choose the ONE tool that handles it, with its arguments, as JSON. You never answer the question and never calculate: tools do that. Reply with a single JSON object only: no prose, no code fences.\n\nThe input may start with the recent conversation and a scan being set up, then lists the user's owned stocks and account names (no amounts), then the new message. Use the conversation to understand short answers to the assistant's last question.\n\nSchema:\n{\n  \"intent\": \"record\" | \"sell\" | \"question\" | \"what_if\" | \"watchlist\" | \"list\" | \"scan\" | \"chat\" | \"help\" | \"clarify\",\n  \"record\": {\n    \"type\": \"liability\" | \"holding\" | \"asset\",\n    \"counterparty\": string | null,\n    \"name\": string | null,\n    \"kind\": \"cash\" | \"other\" | null,\n    \"symbol\": string | null,\n    \"quantity\": number | null,\n    \"price_per_share\": number | null,\n    \"amount\": number | null,\n    \"currency\": string | null\n  },\n  \"watchlist\": { \"action\": \"add\" | \"remove\", \"items\": [string] },\n  \"list\": { \"currency\": string | null },\n  \"scan\": { \"mode\": \"rank\" | \"single\" | null, \"universe\": \"demo\" | \"dow30\" | \"nasdaq100\" | \"sp500\" | \"nyse\" | null, \"symbol\": string | null, \"indicators\": [\"rsi\" | \"macd\" | \"ma_trend\" | \"volume\"] | null, \"all_indicators\": boolean, \"top\": number | null, \"cancel\": boolean },\n  \"sell\": { \"symbol\": string | null, \"quantity\": number | null, \"all\": boolean, \"price\": number | null, \"account\": string | null },\n  \"what_if\": [ { \"symbol\": string, \"price\": number | null, \"change_pct\": number | null } ],\n  \"analysis\": { \"symbol\": string | null, \"indicators\": [\"rsi\" | \"macd\" | \"ma_trend\" | \"volume\"], \"top\": number | null, \"universe\": \"demo\" | \"dow30\" | \"nasdaq100\" | \"sp500\" | \"nyse\" | null },\n  \"question\": string | null\n}\nInclude \"record\" only for intent \"record\", \"sell\" only for \"sell\", \"what_if\" only for \"what_if\", \"watchlist\" only for \"watchlist\", \"list\" only for \"list\", \"scan\" only for \"scan\", \"question\" only for \"clarify\".\n\nRules:\n- Copy numbers exactly. NEVER invent an amount, currency, ticker, name or quantity. If something required is missing or vague, use intent \"clarify\" and ask for exactly what is missing. Always write the question in English.\n- sell = the user sold (or wants to record selling) shares they own and the money goes to one of their accounts. symbol must be one of the owned stocks; \"all\"/\"every\"/\"my X shares\" -> all true and quantity null; price null means \"at the latest price\". account = the account name as listed. Several stocks at once -> clarify and ask for one stock at a time.\n- scan = the Signal Lab tool: analysing one stock with indicators (mode \"single\", symbol) or ranking/screening a universe of stocks (mode \"rank\": \"best stocks\", \"top 10 in the S&P\", \"scan the Dow\"). Fill ONLY what the user said in this message, or what this message answers from the assistant's last scan question; leave everything else null (the app keeps earlier answers and asks for what is missing). Universes: Dow / Dow Jones -> \"dow30\", Nasdaq -> \"nasdaq100\", S&P / S&P 500 -> \"sp500\", NYSE / New York Stock Exchange -> \"nyse\", demo / Demo 20 -> \"demo\". Indicators: RSI -> rsi, MACD -> macd, trend / moving averages -> ma_trend, volume -> volume; \"all\", \"all four\", \"every indicator\" -> all_indicators true. \"cancel\" / \"never mind\" while a scan is being set up -> cancel true.\n- question = a question about the user's OWN finances that needs their numbers: share of the portfolio, biggest/most profitable position, profit or loss, how much cash, what is left after paying debts. The tool reads the database; you only pick it.\n- what_if = a hypothetical price (\"if AAPL reaches 1000\", \"if PLTR drops 20%\") and its effect on their money. price = the new price, or change_pct = the % change (negative for a drop).\n- watchlist = following stocks without owning them (\"add X to my watchlist\", \"watch X\", \"remove X from my watchlist\"). Put every company or ticker the user named in \"items\", copied exactly as written (do NOT convert names to tickers; the app looks them up). Never turn a watchlist request into a record.\n- record is for ONE item per message. If the message lists several debts/holdings/assets, use \"clarify\" and ask the user to send them one at a time.\n- liability = money the user owes someone (needs counterparty, amount, currency).\n- holding = shares the user owns (needs symbol, quantity, price_per_share; currency if stated).\n- asset = cash in a bank/wallet (kind \"cash\") or another valued item like a car or gold (kind \"other\"); needs name, amount, currency.\n- Company name -> ticker only when certain (Apple -> AAPL, Microsoft -> MSFT, Nvidia -> NVDA, Palantir -> PLTR, Datadog -> DDOG, Cloudflare -> NET). Otherwise clarify.\n- Never fill a number the user did not write. No amount or price in the message -> leave it null.\n- Indicators are only listed when the user names them; never fill in indicators the user did not choose.\n- \"show my debts / net worth / portfolio / assets\" -> intent \"list\"; if a currency is asked for (\"in TRY\", \"in dollars\"), put it in list.currency.\n- \"what can you do\" / \"help\" -> intent \"help\".\n- chat = greetings, small talk, thanks, and general questions that do NOT need the user's own numbers (e.g. \"how are you\", \"what is RSI?\", \"what does diversification mean?\"). Questions about the user's own money are \"question\", never \"chat\".\n- TL / ₺ -> TRY, € -> EUR, $ -> USD.\n\nExamples:\nI owe Benjamin EUR 1,000 -> {\"intent\":\"record\",\"record\":{\"type\":\"liability\",\"counterparty\":\"Benjamin\",\"amount\":1000,\"currency\":\"EUR\"}}\nI own 10 AAPL shares at USD 180 -> {\"intent\":\"record\",\"record\":{\"type\":\"holding\",\"symbol\":\"AAPL\",\"quantity\":10,\"price_per_share\":180,\"currency\":\"USD\"}}\nI have 25,000 TL in my Garanti account -> {\"intent\":\"record\",\"record\":{\"type\":\"asset\",\"kind\":\"cash\",\"name\":\"Garanti\",\"amount\":25000,\"currency\":\"TRY\"}}\nAnalyse AAPL using RSI and MACD -> {\"intent\":\"scan\",\"scan\":{\"mode\":\"single\",\"symbol\":\"AAPL\",\"indicators\":[\"rsi\",\"macd\"],\"all_indicators\":false,\"universe\":null,\"top\":null,\"cancel\":false}}\nShow me the best stocks -> {\"intent\":\"scan\",\"scan\":{\"mode\":\"rank\",\"universe\":null,\"symbol\":null,\"indicators\":null,\"all_indicators\":false,\"top\":null,\"cancel\":false}}\n(assistant just asked which universe and indicators) Message: S&P, all of them -> {\"intent\":\"scan\",\"scan\":{\"mode\":null,\"universe\":\"sp500\",\"symbol\":null,\"indicators\":null,\"all_indicators\":true,\"top\":null,\"cancel\":false}}\n(assistant just asked which indicators) Message: just RSI and volume -> {\"intent\":\"scan\",\"scan\":{\"mode\":null,\"universe\":null,\"symbol\":null,\"indicators\":[\"rsi\",\"volume\"],\"all_indicators\":false,\"top\":null,\"cancel\":false}}\nTop five in the Dow -> {\"intent\":\"scan\",\"scan\":{\"mode\":\"rank\",\"universe\":\"dow30\",\"symbol\":null,\"indicators\":null,\"all_indicators\":false,\"top\":5,\"cancel\":false}}\nAdd Apple, nvidia and data dog to my watchlist -> {\"intent\":\"watchlist\",\"watchlist\":{\"action\":\"add\",\"items\":[\"Apple\",\"nvidia\",\"data dog\"]}}\nStop watching TSLA -> {\"intent\":\"watchlist\",\"watchlist\":{\"action\":\"remove\",\"items\":[\"TSLA\"]}}\nI own some Apple shares -> {\"intent\":\"clarify\",\"question\":\"How many Apple shares do you own, and at what price per share?\"}\nOwned stocks: AAPL, PLTR | Message: Can you calculate my net worth if Apple reaches 1000 usd -> {\"intent\":\"what_if\",\"what_if\":[{\"symbol\":\"AAPL\",\"price\":1000,\"change_pct\":null}]}\nOwned stocks: AAPL, PLTR | Message: what happens if palantir falls 20% -> {\"intent\":\"what_if\",\"what_if\":[{\"symbol\":\"PLTR\",\"price\":null,\"change_pct\":-20}]}\nOwned stocks: AAPL, PLTR | Accounts: Revolut | Message: I sold all my AAPL at the current price, add it to Revolut -> {\"intent\":\"sell\",\"sell\":{\"symbol\":\"AAPL\",\"quantity\":null,\"all\":true,\"price\":null,\"account\":\"Revolut\"}}\nOwned stocks: AAPL | Accounts: Revolut | Message: sold 5 AAPL at 350 into revolut -> {\"intent\":\"sell\",\"sell\":{\"symbol\":\"AAPL\",\"quantity\":5,\"all\":false,\"price\":350,\"account\":\"Revolut\"}}\nMessage: How much of my portfolio is PLTR? -> {\"intent\":\"question\"}\nMessage: Which of my stocks made the most money? -> {\"intent\":\"question\"}\nI owe him some money -> {\"intent\":\"clarify\",\"question\":\"Who do you owe, and how much (with the currency)?\"}\nhi how are you -> {\"intent\":\"chat\"}\nWhat does MACD mean? -> {\"intent\":\"chat\"}\nWhat is my net worth? -> {\"intent\":\"list\"}\nWhat is my net worth in TRY? -> {\"intent\":\"list\",\"list\":{\"currency\":\"TRY\"}}"
+            }
+          ]
+        }
+      },
+      "name": "Parse request (AI)",
+      "id": "a85d8386-8fd6-50eb-b64d-93a656c10bbe",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        2220,
+        40
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.YA_LLM_MODEL }}"
+        },
+        "options": {
+          "temperature": 0,
+          "timeout": 120000,
+          "maxRetries": 2,
+          "extraBody": "={{ $env.YA_LLM_EXTRA_BODY || '{}' }}"
+        }
+      },
+      "name": "Chat model (parse)",
+      "id": "8f8d6e97-0ff5-5abe-a2cb-8405f4d3a7ae",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        2220,
+        260
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "yaLlmCred0000001",
+          "name": "YA LLM"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate the LLM's JSON. Anything missing or invalid becomes a clarifying question:\n// the LLM proposes, this code decides what is allowed to reach the database.\nconst ctx = $('Pre-route').first().json;\n// Small models sometimes return several JSON objects back to back (one per item);\n// split them at the top level instead of failing on the whole string.\nconst objects = [];\n{\n  const t = String($json.text ?? '').replace(/```(?:json)?/gi, '');\n  let depth = 0, start = -1, inStr = false, esc = false;\n  for (let i = 0; i < t.length; i++) {\n    const ch = t[i];\n    if (inStr) { if (esc) esc = false; else if (ch === '\\\\') esc = true; else if (ch === '\"') inStr = false; continue; }\n    if (ch === '\"') inStr = true;\n    else if (ch === '{') { if (depth++ === 0) start = i; }\n    else if (ch === '}' && depth > 0 && --depth === 0) {\n      try { objects.push(JSON.parse(t.slice(start, i + 1))); } catch {}\n    }\n  }\n}\nlet p = objects[0] ?? null;\n\nconst out = (intent, extra = {}) => [{ json: { ...ctx, intent, ...extra } }];\nconst clarify = q => out('clarify', { question: q });\n\n// Several requests in one message: a record needs its own confirmation, so ask for\n// one request at a time instead of silently doing only the first.\nconst intents = objects.map(o => o?.intent).filter(i => i && i !== 'help' && i !== 'clarify');\nconst writes = intents.filter(i => i === 'record' || i === 'sell');\nif (writes.length > 1) {\n  return clarify('I can save one record at a time. Could you send them one by one? For example: \"I have USD 500 in Wise\".');\n}\nif (writes.length && new Set(intents).size > 1) {\n  return clarify('That message asks for more than one thing. Could you send the record on its own, and the rest in a separate message?');\n}\n\nif ((!p || typeof p !== 'object') && ctx.scan_draft) p = { intent: 'help' };   // let the scan fallback below try\nif (!p || typeof p !== 'object') {\n  return out('clarify', { parse_error: $json.error ? String($json.error.message ?? $json.error) : 'invalid JSON from model',\n    question: 'Sorry, I could not understand that. Try e.g. \"I owe Benjamin EUR 1,000\" or \"Analyse AAPL using RSI and MACD\".' });\n}\n\nconst str = v => (typeof v === 'string' ? v.trim().slice(0, 80) : '');\nconst ALIAS = { TL: 'TRY', '₺': 'TRY', '€': 'EUR', '$': 'USD', '£': 'GBP' };\nconst cur = v => { const c = str(v).toUpperCase(); const k = ALIAS[c] ?? c; return /^[A-Z]{3}$/.test(k) ? k : null; };\nconst num = v => {\n  if (typeof v === 'number') return Number.isFinite(v) ? v : null;\n  let s = String(v ?? '').replace(/\\s/g, '');\n  if (/^\\d{1,3}(\\.\\d{3})+(,\\d+)?$/.test(s)) s = s.replace(/\\./g, '').replace(',', '.');\n  else if (/^\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) s = s.replace(/,/g, '');\n  else s = s.replace(',', '.');\n  const n = Number(s);\n  return s !== '' && Number.isFinite(n) ? n : null;\n};\n// Grounding: every number in a record must appear in the user's own message, so a model\n// that fills a gap with an invented value (\"1 USD\") is caught here, not saved.\n// The user's own words: this message plus their recent messages (split conversations:\n// \"I sold AAPL\" -> \"how many?\" -> \"10\").\nconst userWords = [ctx.text, ...(ctx.history ?? []).map(h => h.input_text ?? '')].join(' \\n ');\nconst writtenNumbers = (() => {\n  const out = new Set();\n  for (const m of userWords.matchAll(/(\\d[\\d.,\\s]*\\d|\\d)\\s*(k|m|bn)?\\b/gi)) {\n    const raw = m[1].replace(/\\s/g, '');\n    const mult = { k: 1e3, m: 1e6, bn: 1e9 }[String(m[2] ?? '').toLowerCase()] ?? 1;\n    const variants = [raw.replace(/,/g, ''), raw.replace(/\\./g, '').replace(',', '.'), raw.replace(',', '.')];\n    variants.map(Number).filter(Number.isFinite).forEach(n => out.add(Math.round(n * mult * 1e6) / 1e6));\n  }\n  // Each number on its own too, in case two numbers were joined by a space above.\n  for (const m of userWords.matchAll(/\\d+(?:[.,]\\d+)*/g)) {\n    [m[0].replace(/,/g, ''), m[0].replace(/\\./g, '').replace(',', '.'), m[0].replace(',', '.')]\n      .map(Number).filter(Number.isFinite).forEach(n => out.add(Math.round(n * 1e6) / 1e6));\n  }\n  return out;\n})();\nconst grounded = n => n == null || writtenNumbers.has(Math.round(n * 1e6) / 1e6);\nconst TICKER = /^[A-Z][A-Z0-9.\\-]{0,9}$/;\nconst ALL = ['rsi', 'macd', 'ma_trend', 'volume'];\nconst indicators = list => { const l = (Array.isArray(list) ? list : []).map(x => String(x).toLowerCase()).filter(x => ALL.includes(x)); return l.length ? [...new Set(l)] : ALL; };\n\n// While a scan is being set up, a short answer (\"NVDA\", \"S&P\", \"RSI and MACD\", \"all\") is\n// the answer to the assistant's question even if the model routed it elsewhere.\n// Also: a request to analyse or rank stocks that the model answered with its own question\n// (\"which ratios?\") or a help text goes to the scan tool, which asks with the app's options.\nconst SCAN_WORDS = /\\b(analy[sz]e|analysis|rank|ranking|scan|screen|best stocks?|top \\d+|indicators?|rsi|macd)\\b/i;\nconst toolIntents = ['record', 'sell', 'watchlist', 'question', 'what_if', 'list', 'scan', 'analyse', 'rank'];\n// The 7B model drifts between names (\"analysis\", \"analyze_stock\", \"ranking\"); map them to\n// the tool. An intent that is still unknown but whose message asks for analysis goes to\n// the scan fallback below instead of the help text.\nconst INTENT_ALIAS = { analysis: 'analyse', analyze: 'analyse', analyse_stock: 'analyse', analyze_stock: 'analyse',\n  stock_analysis: 'analyse', technical_analysis: 'analyse', ranking: 'rank', rank_stocks: 'rank', screen: 'scan',\n  screener: 'scan', stock_scan: 'scan', signal: 'scan', signal_lab: 'scan', net_worth: 'list', balance: 'list' };\nif (typeof p.intent === 'string') p.intent = INTENT_ALIAS[p.intent.toLowerCase()] ?? p.intent.toLowerCase();\nconst KNOWN = [...toolIntents, 'chat', 'help', 'clarify'];\nif (!KNOWN.includes(p.intent) && SCAN_WORDS.test(ctx.text)) p.intent = 'help';   // → the scan fallback\nif ((ctx.scan_draft && !toolIntents.includes(p.intent))\n    || (['clarify', 'help', 'chat'].includes(p.intent) && SCAN_WORDS.test(ctx.text))) {\n  const t = ctx.text.trim();\n  const words = t.toLowerCase();\n  const slot = { mode: null, universe: null, symbol: null, indicators: null, all_indicators: false, top: null, cancel: false };\n  const U = [[/\\bdow\\b/, 'dow30'], [/nasdaq/, 'nasdaq100'], [/s\\s*&\\s*p|sp\\s*500|s and p/, 'sp500'], [/nyse|new york stock exchange/, 'nyse'], [/demo/, 'demo']];\n  for (const [re, key] of U) if (re.test(words)) { slot.universe = key; break; }\n  const I = [[/\\brsi\\b/, 'rsi'], [/\\bmacd\\b/, 'macd'], [/trend|moving average|\\bsma\\b/, 'ma_trend'], [/volume/, 'volume']];\n  const found = I.filter(([re]) => re.test(words)).map(([, k]) => k);\n  if (found.length) slot.indicators = found;\n  if (/\\ball\\b|every|all four/.test(words)) slot.all_indicators = true;\n  if (/^\\$?[a-z]{1,5}([.-][a-z])?$/i.test(t) && !/^(all|yes|no|ok|rsi|macd|dow|nyse)$/i.test(t)) slot.symbol = t.replace(/^\\$/, '').toUpperCase();\n  if (/^(cancel|never ?mind|stop|forget it)\\b/.test(words)) slot.cancel = true;\n  if (/\\b(rank|ranking|scan|screen|best stocks?|top \\d+)\\b/.test(words)) slot.mode = 'rank';\n  else if (/\\b(analy[sz]e|analysis)\\b/.test(words) && !slot.universe) slot.mode = 'single';\n  const tick = t.match(/\\b[A-Z]{2,5}\\b/g)?.find(w => !['RSI', 'MACD', 'NYSE', 'SMA', 'USD', 'EUR', 'TRY'].includes(w));\n  if (!slot.symbol && slot.mode === 'single' && tick) slot.symbol = tick;\n  if (slot.mode || slot.universe || slot.indicators || slot.all_indicators || slot.symbol || slot.cancel) p = { intent: 'scan', scan: slot };\n}\n\nswitch (p.intent) {\n  case 'record': {\n    const r = p.record ?? {};\n    const missing = [];\n    let fields;\n    if (r.type === 'liability') {\n      fields = { counterparty: str(r.counterparty), amount: num(r.amount), currency: cur(r.currency), note: null };\n      if (!fields.counterparty) missing.push('who you owe');\n      if (!(fields.amount > 0)) missing.push('the amount');\n      if (!fields.currency) missing.push('the currency');\n    } else if (r.type === 'holding') {\n      const symbol = str(r.symbol).toUpperCase();\n      fields = { symbol, quantity: num(r.quantity), cost_per_share: num(r.price_per_share), cost_currency: cur(r.currency) ?? 'USD' };\n      if (!TICKER.test(symbol)) missing.push('the ticker');\n      if (!(fields.quantity > 0)) missing.push('the number of shares');\n      if (!(fields.cost_per_share >= 0) || fields.cost_per_share === null) missing.push('the purchase price per share');\n    } else if (r.type === 'asset') {\n      fields = { kind: r.kind === 'other' ? 'other' : 'cash', name: str(r.name), amount: num(r.amount), currency: cur(r.currency) };\n      if (!fields.name) missing.push('the account or asset name');\n      if (!(fields.amount >= 0) || fields.amount === null) missing.push('the amount');\n      if (!fields.currency) missing.push('the currency');\n    } else {\n      missing.push('the record type (debt, shares or asset)');\n    }\n    const LABEL = { amount: 'the amount', quantity: 'the number of shares', cost_per_share: 'the purchase price per share' };\n    for (const k of Object.keys(LABEL)) {\n      if (k in fields && fields[k] != null && !grounded(fields[k]) && !missing.includes(LABEL[k])) missing.push(LABEL[k]);\n    }\n    if (missing.length) return clarify(`Before I save this, could you tell me ${missing.join(', ')}?`);\n    return out('record', { record: { type: r.type, fields } });\n  }\n  case 'scan':\n  case 'analyse':\n  case 'rank': {\n    // Signal Lab in the chat. This message's details are merged into the scan being set up\n    // (scan_draft); anything still missing is asked for; when complete the scan runs.\n    const d = ctx.scan_draft ?? {};\n    const n = { ...(p.scan ?? p.analysis ?? {}) };\n    // Slot grounding: a detail counts only if THIS message says it (small models copy\n    // indicators or universes from older turns). Otherwise the draft keeps or asks for it.\n    const msg = ctx.text.toLowerCase();\n    const IND_WORDS = { rsi: /\\brsi\\b/, macd: /\\bmacd\\b/, ma_trend: /trend|moving average|\\bsma\\b|\\bma\\b/, volume: /volume/ };\n    // \"all four (indicators)\", \"every indicator\", or just \"all\" as an answer: the model may\n    // list the four indicators instead of setting all_indicators, so either counts.\n    const modelAll = n.all_indicators === true\n      || (Array.isArray(n.indicators) && new Set(n.indicators.map(k => String(k).toLowerCase()).filter(k => ALL.includes(k))).size === ALL.length);\n    const saysAll = /\\b(all|every|each)\\b[\\w\\s]{0,15}\\b(indicators?|four|4|of them)\\b|\\bfour indicators\\b|^\\W*(all|everything)\\W*$/.test(msg);\n    n.all_indicators = saysAll || (modelAll && /\\ball\\b|every|four|each/.test(msg));\n    if (Array.isArray(n.indicators)) n.indicators = n.indicators.filter(k => IND_WORDS[String(k).toLowerCase()]?.test(msg));\n    // indicators named in the message count even if the model left them out\n    const namedInds = Object.keys(IND_WORDS).filter(k => IND_WORDS[k].test(msg));\n    if (namedInds.length) n.indicators = [...new Set([...(Array.isArray(n.indicators) ? n.indicators : []), ...namedInds])];\n    const UNI_WORDS = { dow30: /\\bdow\\b/, nasdaq100: /nasdaq/, sp500: /s\\s*&\\s*p|sp\\s*500|s and p|standard/, nyse: /nyse|new york/, demo: /demo/ };\n    if (n.universe && !UNI_WORDS[n.universe]?.test(msg)) n.universe = null;\n    if (n.top != null && !String(ctx.text).includes(String(Math.round(num(n.top) ?? -1)))) n.top = null;\n    if (n.symbol) {\n      const symTxt = String(n.symbol).toUpperCase().replace(/^\\$/, '');\n      const named = new RegExp(`\\\\b${symTxt.replace(/[.-]/g, '[.-]')}\\\\b`, 'i').test(ctx.text);\n      // a company name (\"analyse apple\") is fine only in a message that is about one stock\n      if (!named && !/\\b(analy[sz]e|look at|check|stock|shares?)\\b/.test(msg)) n.symbol = null;\n    }\n    // Mode, grounded the same way: \"rank\" needs ranking words or a universe in this message;\n    // a ticker or \"analyse\" without them means one stock.\n    const rankish = /\\b(rank|ranking|scan|screen|best|top \\d+|universe|stocks)\\b/.test(msg) || !!n.universe;\n    const singleish = /\\b(analy[sz]e|analysis|look at|check)\\b/.test(msg);\n    if (n.mode === 'rank' && !rankish) n.mode = null;\n    if (n.mode === 'single' && !(singleish || n.symbol)) n.mode = null;\n    if (!n.mode && (n.symbol || singleish) && !rankish) n.mode = 'single';\n    if (n.cancel === true) return out('scan_cancel');\n    const UNIS = ['demo', 'dow30', 'nasdaq100', 'sp500', 'nyse'];\n    const pick = l => { const x = (Array.isArray(l) ? l : []).map(v => String(v).toLowerCase()).filter(v => ALL.includes(v)); return x.length ? [...new Set(x)] : null; };\n    const sym = str(n.symbol).toUpperCase().replace(/^\\$/, '');\n    const symbol = TICKER.test(sym) ? sym : (d.symbol ?? null);\n    const universe = UNIS.includes(n.universe) ? n.universe : (d.universe ?? null);\n    const inds = n.all_indicators === true ? ALL : (pick(n.indicators) ?? (d.indicators?.length ? d.indicators : null));\n    const topN = num(n.top);\n    const top = topN > 0 ? Math.min(20, Math.round(topN)) : (d.top ?? 5);\n    let mode = n.mode === 'single' || n.mode === 'rank' ? n.mode\n             : p.intent === 'analyse' ? 'single' : p.intent === 'rank' ? 'rank' : null;\n    if (!mode && TICKER.test(sym)) mode = 'single';\n    if (!mode && UNIS.includes(n.universe)) mode = 'rank';\n    mode = mode ?? d.mode ?? null;\n    const draft = { mode, universe, symbol, indicators: inds, top };\n    const ask = [];\n    if (!mode) ask.push('whether to rank a group of stocks (Demo 20, Dow 30, Nasdaq 100, S&P 500 or all NYSE stocks) or to analyse one stock');\n    else if (mode === 'rank' && !universe) ask.push('which universe to scan: Demo 20, Dow 30, Nasdaq 100, S&P 500 or all NYSE stocks');\n    else if (mode === 'single' && !symbol) ask.push('which stock (ticker) to analyse');\n    if (!inds) ask.push('which indicators to use: RSI, MACD, Trend, Volume, or all four');\n    if (ask.length) return out('scan_ask', { scan_draft: draft, question: `To run the scan I still need to know ${ask.join(', and ')}.` });\n    return out('scan', { analysis: { mode, symbol: mode === 'single' ? symbol : null,\n                                     universe: mode === 'rank' ? universe : null, indicators: inds, top } });\n  }\n  case 'watchlist': {\n    const w = p.watchlist ?? {};\n    const action = w.action === 'remove' ? 'remove' : 'add';\n    // Items stay as the user wrote them; the sub-workflow resolves them on Yahoo.\n    // Older-style \"symbols\" output is accepted too.\n    const raw = [...(Array.isArray(w.items) ? w.items : []), ...(Array.isArray(w.symbols) ? w.symbols : [])];\n    const items = [...new Set(raw.map(x => str(x).replace(/^\\$/, '').slice(0, 40))\n      .filter(x => x && !/^(unknown|none|null|n\\/?a|tbd)$/i.test(x)))].slice(0, 20);\n    if (!items.length) return clarify(`Which stocks should I ${action} ${action === 'add' ? 'to' : 'from'} your watchlist?`);\n    return out('watchlist', { watchlist: { action, items } });\n  }\n  case 'question':\n    // The answer sub-workflow reads the database and computes; nothing to validate here.\n    return out('question', { question: { text: ctx.text, scenario: [] } });\n  case 'what_if': {\n    const list = (Array.isArray(p.what_if) ? p.what_if : p.what_if ? [p.what_if] : []).slice(0, 5);\n    const scenario = [];\n    for (const w of list) {\n      const symbol = str(w?.symbol).toUpperCase().replace(/^\\$/, '');\n      const price = num(w?.price), change_pct = num(w?.change_pct);\n      if (!TICKER.test(symbol)) continue;\n      if (price != null && price > 0 && grounded(price)) scenario.push({ symbol, price, change_pct: null });\n      else if (change_pct != null && grounded(Math.abs(change_pct))) scenario.push({ symbol, price: null, change_pct });\n    }\n    if (!scenario.length) return clarify('Which stock and which price (or % change) should I use? For example: \"What if AAPL reaches 400 USD?\"');\n    return out('what_if', { question: { text: ctx.text, scenario } });\n  }\n  case 'sell': {\n    // The code, not the LLM, works out quantity, price, proceeds and the FX conversion.\n    const w = p.sell ?? {};\n    const symbol = str(w.symbol).toUpperCase().replace(/^\\$/, '');\n    const pos = (ctx.owned ?? []).find(o => o.symbol === symbol);\n    const ownedList = (ctx.owned ?? []).map(o => o.symbol).join(', ') || 'none';\n    if (!pos) return clarify(symbol ? `You don't hold ${symbol}. Your stocks: ${ownedList}. Which one did you sell?`\n                                    : `Which stock did you sell? Your stocks: ${ownedList}. One stock at a time, please.`);\n    const held = Number(pos.quantity);\n    let quantity = num(w.quantity);\n    const all = w.all === true || quantity == null;\n    if (all) quantity = held;\n    else if (!grounded(quantity)) return clarify(`How many ${symbol} shares did you sell? You hold ${held}.`);\n    if (!(quantity > 0) || quantity > held) return clarify(`You hold ${held} ${symbol}; how many did you sell?`);\n    let price = num(w.price), price_source = 'given';\n    if (price != null && !grounded(price)) price = null;\n    if (price == null) {\n      if (pos.price == null || pos.price_status === 'unavailable') return clarify(`I have no current price for ${symbol}. At what price per share did you sell?`);\n      price = Number(pos.price); price_source = 'current';\n    }\n    const price_currency = pos.price_currency ?? 'USD';\n    const accounts = ctx.accounts ?? [];\n    const wanted = str(w.account).toLowerCase();\n    const acc = wanted ? accounts.find(a => a.name.toLowerCase() === wanted)\n                         ?? accounts.find(a => a.name.toLowerCase().includes(wanted) || wanted.includes(a.name.toLowerCase()))\n                       : null;\n    if (!acc) return clarify(`Which account should the money go to? ${accounts.length ? 'Your accounts: ' + accounts.map(a => a.name).join(', ') : 'Add an account first.'}`);\n    const fx = ctx.fx ?? {};\n    const round2 = n => Math.round(n * 100) / 100;\n    const proceeds = round2(quantity * price);\n    const rate = acc.currency === price_currency ? 1 : (fx[price_currency] && fx[acc.currency] ? fx[price_currency] / fx[acc.currency] : null);\n    if (rate == null) return clarify(`I have no ${price_currency}→${acc.currency} exchange rate yet. Please try again after the next price refresh.`);\n    return out('sell', { record: { type: 'sale', fields: {\n      symbol, quantity, all: quantity === held, price, price_currency, price_source, proceeds,\n      account_id: acc.id, account_name: acc.name, account_currency: acc.currency,\n      proceeds_account: round2(proceeds * rate) } } });\n  }\n  case 'list':\n    return out('list', { list_currency: cur(p.list?.currency) });\n  case 'chat':\n    return out('chat');\n  case 'help':\n    return out(p.intent);\n  case 'clarify':\n    return clarify(str(p.question) || 'Could you give me a bit more detail?');\n  default:\n    return out('help');\n}\n"
+      },
+      "name": "Validate AI JSON",
+      "id": "020c5fc8-b47e-52b9-8ca8-6dadb1ebcf8f",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2460,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "d5e3ac28-c756-5ea7-947b-42dffd2a68b3",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "record",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "record"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "9e34c588-f440-5a6d-800d-350c2cf5b5b7",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "analyse",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "analyse"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "1b6c6ad1-5f58-5071-8c8e-dee7ab8a3b6d",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "rank",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "rank"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "32733b5f-b1c2-5232-9c5e-a38ee3beb0eb",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "list",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "list"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "7e22ca72-8dcd-5df5-a185-36cc3df4275c",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "help",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "help"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "784d3980-21d3-5009-ad58-9a75ae85ed7d",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "clarify",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "clarify"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "dd93d648-fcb3-54ca-b18d-b31161557560",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "watchlist",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "watchlist"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "faa1ff08-5e88-5c16-95dd-630579080788",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "sell",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "sell"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "06fb6051-851a-58c3-8ecf-d8dffdcbdaa3",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "question",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "question"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "ee7f69a8-0dfe-521f-9e80-8e50e0502e5b",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "what_if",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "what_if"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "41cafaa7-70b0-54b8-95cb-6f2fc9c11d5d",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "chat",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "chat"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "6386654e-a983-5089-96d7-19b040b57dc8",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "scan",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "scan"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "f8bda6e9-61de-540f-a1ad-36314bc8e1d0",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "scan_ask",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "scan_ask"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "bbb5e188-3b96-5bc0-bf2d-9895c09058c5",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "scan_cancel",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "scan_cancel"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "name": "Switch: intent",
+      "id": "420e987c-2c0d-53a5-9820-52a67330ab58",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        2700,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Shape the item for a sub-workflow (its trigger receives it as-is).\nconst c = $json;\nconst mode = { record: 'propose', sell: 'propose', analyse: 'single', rank: 'rank', watchlist: 'watchlist',\n               question: 'question', what_if: 'what_if' }[c.intent] ?? c.route; // confirm | cancel\nreturn [{ json: { mode,\n  user_id: c.user_id, request_id: c.request_id, event_id: c.event_id,\n  record: c.record, analysis: c.analysis, watchlist: c.watchlist, question: c.question } }];\n"
+      },
+      "name": "Prepare record",
+      "id": "49f1fa08-8220-5edf-8477-b085f37fb5b3",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2960,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "YArecordEntry001",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "mode": "={{ $json.mode }}",
+            "user_id": "={{ $json.user_id }}",
+            "request_id": "={{ $json.request_id }}",
+            "event_id": "={{ $json.event_id }}",
+            "record": "={{ $json.record }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "mode",
+              "displayName": "mode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "request_id",
+              "displayName": "request_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "any"
+            },
+            {
+              "id": "event_id",
+              "displayName": "event_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "record",
+              "displayName": "record",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "any"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "name": "Record financial entry",
+      "id": "ac84738d-800f-53c5-824a-d1ba924e3921",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        3200,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Shape the item for a sub-workflow (its trigger receives it as-is).\nconst c = $json;\nconst mode = { record: 'propose', sell: 'propose', analyse: 'single', rank: 'rank', watchlist: 'watchlist',\n               question: 'question', what_if: 'what_if' }[c.intent] ?? c.route; // confirm | cancel\nreturn [{ json: { mode,\n  user_id: c.user_id, request_id: c.request_id, event_id: c.event_id,\n  record: c.record, analysis: c.analysis, watchlist: c.watchlist, question: c.question } }];\n"
+      },
+      "name": "Prepare analysis",
+      "id": "b5f3454e-4fe2-5a5b-8f3f-b1edbe474ff4",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2960,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "YAanalyseStock01",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "mode": "={{ $json.mode }}",
+            "user_id": "={{ $json.user_id }}",
+            "request_id": "={{ $json.request_id }}",
+            "event_id": "={{ $json.event_id }}",
+            "analysis": "={{ $json.analysis }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "mode",
+              "displayName": "mode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "request_id",
+              "displayName": "request_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "any"
+            },
+            {
+              "id": "event_id",
+              "displayName": "event_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "analysis",
+              "displayName": "analysis",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "name": "Analyse US stock",
+      "id": "2200d25a-39ed-5a1f-918a-2f6034bae5f7",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        3200,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with j as (select ($1::jsonb->>'user_id')::uuid as user_id)\nselect (select row_to_json(n) from v_net_worth n, j where n.user_id = j.user_id) as totals,\n       (select json_object_agg(currency, usd_per_unit) from fx_rate) as usd_per_unit,\n       coalesce((select json_agg(li order by li.category, li.label)\n                 from v_line_item li, j where li.user_id = j.user_id), '[]'::json) as items;",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify({ user_id: $json.user_id }) }}"
+        }
+      },
+      "name": "List records",
+      "id": "83d74636-650f-538c-9f52-ff9827fcd58c",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2960,
+        220
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "yaPgLocal0000001",
+          "name": "YA Postgres (local)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "jsCode": "const c = $('Validate AI JSON').first().json;\nconst money = (n, cur) => new Intl.NumberFormat('en-US',\n  { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n)) + ' ' + cur;\nconst { totals, items, usd_per_unit: fx } = $json;\n// Optional display currency (\"net worth in TRY\"): convert the base-currency totals.\nconst want = c.list_currency && fx?.[c.list_currency] && fx?.[totals.base_currency] ? c.list_currency : null;\nconst conv = n => want ? Number(n) * fx[totals.base_currency] / fx[want] : Number(n);\nconst show = want ?? totals.base_currency;\nconst NAMES = { cash: 'Cash', other: 'Other asset', stock: 'Stock', liability: 'Debt' };\nconst lines = items.length\n  ? items.map(i => `• ${NAMES[i.category] ?? i.category}: ${i.label} — ${i.unpriced ? 'no price' : money(i.amount, i.currency)}`\n      + (i.currency !== i.base_currency && !i.unpriced ? ` (≈ ${money(Math.abs(i.base_amount), i.base_currency)})` : ''))\n  : ['No records yet.'];\nlines.push('', `Assets ${money(conv(totals.total_assets), show)} − Liabilities ${money(conv(totals.total_liabilities), show)} = Net worth ${money(conv(totals.net_worth), show)}`);\nif (c.list_currency && !want) lines.push(`(No exchange rate for ${c.list_currency}; shown in ${totals.base_currency}.)`);\nreturn [{ json: { intent: 'list', status: 'done', reply: lines.join('\\n'), data: { totals, items } } }];\n"
+      },
+      "name": "Format list",
+      "id": "d0fab807-79ad-5041-a093-d547faf63ee6",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3200,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const c = $json;\nif (c.route === 'no_pending') {\n  return [{ json: { intent: 'confirm', status: 'done', data: null,\n    reply: 'There is nothing waiting for confirmation.' } }];\n}\nif (c.intent === 'clarify') {\n  return [{ json: { intent: 'clarify', status: 'done', data: c.parse_error ? { parse_error: c.parse_error } : null, reply: c.question } }];\n}\nreturn [{ json: { intent: 'help', status: 'done', data: null, reply: `I can help with:\n• Records: \"I owe Benjamin EUR 1,000\", \"I own 10 AAPL shares at USD 180\", \"I have USD 2,000 in Revolut\"\n• Watchlist: \"Add Nvidia, Palantir and Cloudflare to my watchlist\", \"Remove TSLA from my watchlist\"\n• Questions: \"How much of my portfolio is PLTR?\", \"What if AAPL reaches 400 USD?\"\n• Sales: \"I sold all my AAPL at the latest price, add it to Revolut\"\n• Listing: \"What is my net worth?\"\n• Analysis: \"Analyse AAPL using RSI and MACD\" (RSI, MACD, moving-average trend, volume)\n• Ranking: \"Top five in the demo universe\"\nI always ask before saving a record. This is a tracking and research tool, not investment advice.` } }];\n"
+      },
+      "name": "Direct reply",
+      "id": "12e9fee2-e932-511a-a7cd-de75af13dd3f",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3200,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Pre-route').first().json.text }}",
+        "hasOutputParser": false,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You are YourAnalyst, a friendly assistant inside a personal-finance dashboard.\nReply to the user's message naturally and briefly (at most 50 words), in English, warm but professional.\n- Small talk: answer like a person would, then offer help in one short phrase.\n- General finance or market concepts (RSI, MACD, diversification, net worth...): explain simply in 1-3 sentences.\n- You cannot see the user's accounts here. Never state or guess their balances, holdings or prices; if they ask about their own money, tell them to ask directly, e.g. \"What is my net worth?\".\n- No investment advice, no buy/sell recommendations. No lists, no headings."
+            }
+          ]
+        }
+      },
+      "name": "Chat reply (AI)",
+      "id": "651c2d56-a5a7-59b6-9c41-c5aa4c8a6114",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        2960,
+        920
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.YA_LLM_MODEL }}"
+        },
+        "options": {
+          "temperature": 0.6,
+          "timeout": 120000,
+          "maxRetries": 2,
+          "extraBody": "={{ $env.YA_LLM_EXTRA_BODY || '{}' }}"
+        }
+      },
+      "name": "Chat model (chat)",
+      "id": "02d48f60-b14c-5ea3-a5d4-e471c9d423ab",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        2960,
+        1120
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "yaLlmCred0000001",
+          "name": "YA LLM"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Plain reply; if the model failed, a short friendly fallback.\nconst text = String($json.text ?? '').trim();\nconst reply = text && !$json.error ? text : \"I'm here! Ask me about your accounts, stocks or a what-if, e.g. \\\"What is my net worth?\\\"\";\nreturn [{ json: { intent: 'chat', status: 'done', reply, data: null } }];\n"
+      },
+      "name": "Format chat reply",
+      "id": "ea83d22a-d401-5b2f-a5cf-0c72b5122e75",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3200,
+        920
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Shape the item for a sub-workflow (its trigger receives it as-is).\nconst c = $json;\nconst mode = { record: 'propose', sell: 'propose', analyse: 'single', rank: 'rank', watchlist: 'watchlist',\n               question: 'question', what_if: 'what_if' }[c.intent] ?? c.route; // confirm | cancel\nreturn [{ json: { mode,\n  user_id: c.user_id, request_id: c.request_id, event_id: c.event_id,\n  record: c.record, analysis: c.analysis, watchlist: c.watchlist, question: c.question } }];\n"
+      },
+      "name": "Prepare watchlist",
+      "id": "1a5925c2-4618-5474-9a76-d66b6e13bcf7",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2960,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Shape the item for a sub-workflow (its trigger receives it as-is).\nconst c = $json;\nconst mode = { record: 'propose', sell: 'propose', analyse: 'single', rank: 'rank', watchlist: 'watchlist',\n               question: 'question', what_if: 'what_if' }[c.intent] ?? c.route; // confirm | cancel\nreturn [{ json: { mode,\n  user_id: c.user_id, request_id: c.request_id, event_id: c.event_id,\n  record: c.record, analysis: c.analysis, watchlist: c.watchlist, question: c.question } }];\n"
+      },
+      "name": "Prepare question",
+      "id": "0a36ffa2-2453-5401-87aa-3cb36604ad40",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2960,
+        740
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "YAanswerQuest001",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "mode": "={{ $json.mode }}",
+            "user_id": "={{ $json.user_id }}",
+            "request_id": "={{ $json.request_id }}",
+            "event_id": "={{ $json.event_id }}",
+            "question": "={{ $json.question }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "mode",
+              "displayName": "mode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "request_id",
+              "displayName": "request_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "any"
+            },
+            {
+              "id": "event_id",
+              "displayName": "event_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "question",
+              "displayName": "question",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "any"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "name": "Answer question",
+      "id": "41041db4-8000-59ef-9b5b-b773c8314e9c",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        3200,
+        740
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "YAwatchlist00001",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "mode": "={{ $json.mode }}",
+            "user_id": "={{ $json.user_id }}",
+            "request_id": "={{ $json.request_id }}",
+            "event_id": "={{ $json.event_id }}",
+            "watchlist": "={{ $json.watchlist }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "mode",
+              "displayName": "mode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "request_id",
+              "displayName": "request_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "any"
+            },
+            {
+              "id": "event_id",
+              "displayName": "event_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "watchlist",
+              "displayName": "watchlist",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "name": "Update watchlist",
+      "id": "8863d36a-f4f4-5ac4-8dd9-8f00ccd5e5c5",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        3200,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Shape the item for a sub-workflow (its trigger receives it as-is).\nconst c = $json;\nconst mode = { record: 'propose', sell: 'propose', analyse: 'single', rank: 'rank', watchlist: 'watchlist',\n               question: 'question', what_if: 'what_if' }[c.intent] ?? c.route; // confirm | cancel\nreturn [{ json: { mode,\n  user_id: c.user_id, request_id: c.request_id, event_id: c.event_id,\n  record: c.record, analysis: c.analysis, watchlist: c.watchlist, question: c.question } }];\n"
+      },
+      "name": "Prepare confirmation",
+      "id": "c6b35d15-b085-50b5-8683-567af0d1a6b5",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2220,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "delete from scan_draft where user_id = ($1::jsonb->>'user_id')::uuid returning user_id;",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify({ user_id: $json.user_id }) }}"
+        }
+      },
+      "name": "Clear scan draft",
+      "id": "416efbb7-b10d-5359-bfef-e8e5746ef3d1",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2960,
+        1300
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "yaPgLocal0000001",
+          "name": "YA Postgres (local)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const c = $('Validate AI JSON').first().json;\nreturn [{ json: { mode: c.analysis.mode, user_id: c.user_id, request_id: c.request_id, event_id: c.event_id,\n  analysis: c.analysis } }];\n"
+      },
+      "name": "Prepare scan",
+      "id": "a30699d6-e134-5747-992d-22d9fc9dfad7",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3200,
+        1300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with j as (select $1::jsonb as j)\ninsert into scan_draft (user_id, mode, universe, symbol, indicators, top, updated_at)\nselect (j->>'user_id')::uuid, j->'d'->>'mode', j->'d'->>'universe', j->'d'->>'symbol',\n       case when jsonb_typeof(j->'d'->'indicators') = 'array'\n            then array(select jsonb_array_elements_text(j->'d'->'indicators')) end,\n       (j->'d'->>'top')::int, now()\nfrom j\non conflict (user_id) do update set mode = excluded.mode, universe = excluded.universe, symbol = excluded.symbol,\n    indicators = excluded.indicators, top = excluded.top, updated_at = now()\nreturning user_id;",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify({ user_id: $json.user_id, d: $json.scan_draft }) }}"
+        }
+      },
+      "name": "Save scan draft",
+      "id": "a0ff49e7-6170-5e98-81b4-79ebe3564b51",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2960,
+        1480
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "yaPgLocal0000001",
+          "name": "YA Postgres (local)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "jsCode": "const c = $('Validate AI JSON').first().json;\nreturn [{ json: { intent: 'clarify', status: 'done', reply: c.question, data: { scan_draft: c.scan_draft } } }];\n"
+      },
+      "name": "Ask scan question",
+      "id": "2325ff6d-cb36-5109-87a3-36b1825ed0f1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3200,
+        1480
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "delete from scan_draft where user_id = ($1::jsonb->>'user_id')::uuid returning user_id;",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify({ user_id: $json.user_id }) }}"
+        }
+      },
+      "name": "Drop scan draft",
+      "id": "6fc48176-40b5-5a9d-8280-64e7844c0d91",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2960,
+        1660
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "yaPgLocal0000001",
+          "name": "YA Postgres (local)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { intent: 'scan', status: 'done', reply: 'Okay, I dropped that scan. Nothing was run.', data: null } }];\n"
+      },
+      "name": "Scan cancelled",
+      "id": "445a4418-3ce8-51d3-bc41-a2e3bb577056",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3200,
+        1660
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all();   // every tool result passes through here"
+      },
+      "name": "Collect result",
+      "id": "2257aa26-fabe-5006-91e0-dcc807c38b4f",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3460,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ 'USER MESSAGE: ' + $('Pre-route').first().json.text + '\\nTOOL: ' + $json.intent + '\\nSTATUS: ' + $json.status + '\\nRESULT:\\n' + $json.reply }}",
+        "hasOutputParser": false,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You are YourAnalyst, the assistant of a personal-finance dashboard. The app has already done the work; you tell the user the result in your own words.\nRules:\n- Use only facts and numbers that appear in RESULT. Copy numbers exactly as written there (same digits, same currency). Never calculate, round differently or add a number.\n- Answer what the user asked first, naturally and warmly, like a person, not a report. Vary your wording; no fixed phrases.\n- Keep the important figures (amounts, totals, prices, scores, percentages). For long lists, mention the most relevant items and the total.\n- STATUS awaiting_confirmation: say exactly what you are about to save (with its numbers) and ask the user to confirm with yes or no. Nothing is saved yet.\n- STATUS failed: explain briefly that it did not work and what they can do.\n- If RESULT asks the user a question, ask it in your own words and keep exactly the options it lists; never suggest other options.\n- Never ask the user to confirm or save anything unless STATUS is awaiting_confirmation.\n- If RESULT says \"not investment advice\", keep that idea in one short phrase.\n- Scores are points out of 100 under the stated rules, never a rank or position.\n- For stock rankings, talk only about the stocks listed in RESULT; never claim anything about the other stocks of the universe (\"the rest also score...\").\n- For stock rankings, describe each stock only with the indicator labels written next to it in RESULT (e.g. \"RSI overbought (above 70)\", \"above SMA200 only\"); never upgrade or soften them, and never leave out a negative one.\n- Do not end with a question unless you need a confirmation or a missing detail. No \"Is this what you wanted?\"-style endings.\n- English only, plain text, at most 90 words; a short list only if there are more than four items to name."
+            }
+          ]
+        }
+      },
+      "name": "Narrate reply (AI)",
+      "id": "f401cf98-a823-5f8b-84b0-cdc5602a6273",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        3680,
+        160
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.YA_LLM_MODEL }}"
+        },
+        "options": {
+          "temperature": 0.4,
+          "timeout": 120000,
+          "maxRetries": 2,
+          "extraBody": "={{ $env.YA_LLM_EXTRA_BODY || '{}' }}"
+        }
+      },
+      "name": "Chat model (narrate)",
+      "id": "f94dc481-65c4-5a88-a4d6-0a414974832f",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        3680,
+        380
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "yaLlmCred0000001",
+          "name": "YA LLM"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "function wordingProblems(text, ranked, single = false) {\n  const problems = [];\n  if (!text || !ranked?.length) return problems;\n  const esc = s => s.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');\n  const IND = /rsi|macd|trend|volume|sma|overbought|oversold/;\n  // \"not in a clear uptrend\", \"isn't oversold\": negated phrases say nothing about the stock.\n  const NEG = /\\b(not|no|never|isn['’]t|aren['’]t|without|lacks?)\\s+(yet\\s+)?(a\\s+|an\\s+|in\\s+a\\s+)?(clear\\s+|clean\\s+|strong\\s+|unusually\\s+)?(up-?trend|down-?trend|overbought|oversold|(heavy|high|strong)\\s+volume)/g;\n  const contradicts = (seg, c) => (seg = seg.replace(NEG, ' '),\n    (/\\bup-?trend/.test(seg) && c.ma_trend !== 1) ||\n    (/\\bdown-?trend/.test(seg) && c.ma_trend !== -1) ||\n    (/overbought/.test(seg) && c.rsi !== -1) ||\n    (/oversold/.test(seg) && c.rsi !== 1) ||\n    (/neutral to strong|50-70|50–70/.test(seg) && c.rsi !== 0) ||\n    (/rsi (over|above) 50/.test(seg) && c.rsi > 0) ||\n    (/rsi below 50|below neutral/.test(seg) && c.rsi <= 0) ||\n    (/(negative|falling|bearish)[^,;]{0,12}macd|macd[^,;]{0,25}(negative|falling|bearish)/.test(seg) && c.macd > 0) ||\n    (/(heavy|high|strong) volume/.test(seg) && !c.volume) ||\n    // a stock described by its indicators must not hide a negative one\n    (IND.test(seg) && ((c.rsi === -1 && !/overbought|above 70/.test(seg)) ||\n                       (c.macd === -1 && !/macd/.test(seg)) ||\n                       (c.ma_trend === -1 && !/downtrend/.test(seg)) ||\n                       (c.volume === -1 && !/down day/.test(seg)))));\n  // One analysed stock: the whole text is about it, symbol or not.\n  if (single) {\n    if (contradicts(text.toLowerCase(), ranked[0].contributions ?? {}))\n      problems.push(`${ranked[0].symbol}: wording does not match its indicators`);\n    return problems;\n  }\n  const units = text.split(/\\n+|(?<=[.!?])\\s+(?=[A-Z0-9])/);\n  for (const unit of units) {\n    const hits = ranked.map(x => ({ x, i: unit.search(new RegExp(`\\\\b${esc(x.symbol)}\\\\b`)) }))\n      .filter(h => h.i >= 0).sort((a, b) => a.i - b.i);\n    const segs = hits.map((h, j) => unit.slice(h.i, j + 1 < hits.length ? hits[j + 1].i : unit.length).toLowerCase());\n    for (let j = 0; j < hits.length; j++) {\n      // \"AMZN, JPM and MSFT ...\": a stock without its own words shares the next description\n      let k = j;\n      while (k < hits.length - 1 && !IND.test(segs[k])) k++;\n      const c = hits[j].x.contributions ?? {};\n      if (contradicts(segs[k], c)) problems.push(`${hits[j].x.symbol}: wording does not match its indicators`);\n    }\n  }\n  return [...new Set(problems)];\n}\n// Keep the LLM's wording only if every number in it exists in the tool result (or the\n// user's message). Otherwise, or if the model failed, fall back to the tool's own text.\nconst tool = $('Collect result').first().json;\n// Tidy the model's wording: no markdown, and no trailing \"Is this what you wanted?\" when\n// nothing needs answering (only confirmations and clarifications may end in a question).\nlet text = String($json.text ?? '').trim().replace(/\\*\\*(.+?)\\*\\*/g, '$1').replace(/^\\s*[*-]\\s+/gm, '• ');\nconst mayAsk = tool.status === 'awaiting_confirmation' || tool.intent === 'clarify' || /\\?\\s*$/.test(String(tool.reply ?? ''));\n// A scan question must offer exactly the app's options (no \"P/E ratio\" or \"dividend yield\").\nif (tool.data?.scan_draft) {\n  const opts = ['RSI', 'MACD', 'Trend', 'Volume', 'Demo 20', 'Dow 30', 'Nasdaq 100', 'S&P 500', 'NYSE']\n    .filter(o => String(tool.reply).includes(o));\n  const offTopic = /earnings|dividend|p\\/?e\\b|price-to|ratio|fundamental|revenue|market cap/i.test(text);\n  if (offTopic || !opts.every(o => text.toLowerCase().includes(o.toLowerCase()))) text = '';\n}\n// Nothing is waiting for a yes/no: drop invented \"confirm / save this\" sentences.\nif (tool.status !== 'awaiting_confirmation') {\n  text = text.split(/(?<=[.!?])\\s+/).filter(sn => !/\\b(confirm|save (this|the|it)|want to save)\\b/i.test(sn)).join(' ').trim() || text;\n}\nif (!mayAsk) {\n  for (let i = 0; i < 2 && /\\?\\s*$/.test(text); i++) {\n    const cut = text.replace(/\\s*[^.!?\\n]*\\?\\s*$/, '').trim();\n    if (!cut || cut === text) break;\n    text = cut;\n  }\n}\nconst source = String(tool.reply ?? '') + ' ' + $('Pre-route').first().json.text;\n// Numbers with their currency: \"107,065.00 USD\" in the result may not become \"107,065 EUR\".\nconst MULT = { k: 1e3, thousand: 1e3, m: 1e6, million: 1e6, bn: 1e9, billion: 1e9 };\nconst SYM = { '€': 'EUR', '$': 'USD', '£': 'GBP', '₺': 'TRY' };\nconst NUM = /([€$£₺])?\\s?(\\d[\\d,]*(?:\\.\\d+)?)(?:\\s*(thousand|million|billion|bn|k|m)\\b)?(?:\\s*(EUR|USD|TRY|GBP)\\b)?/gi;\nconst parse = m => {\n  const raw = m[2], n = Number(raw.replace(/,/g, ''));\n  const mult = MULT[String(m[3] ?? '').toLowerCase()] ?? 1;\n  return { raw, n, mult, value: n * mult, cur: (m[4] ?? '').toUpperCase() || SYM[m[1]] || null,\n           dec: raw.includes('.') ? raw.split('.')[1].length : 0 };\n};\nconst allowed = [...source.matchAll(NUM)].map(parse);\nconst bad = [];\nfor (const m of text.matchAll(NUM)) {\n  const t = parse(m);\n  if (!Number.isFinite(t.n)) continue;\n  if (!t.cur && t.mult === 1 && Number.isInteger(t.n) && (t.n <= 10 || (t.n >= 1990 && t.n <= 2100))) continue;   // small counts, years\n  const tol = Math.max(0.0051, 0.5 * Math.pow(10, -t.dec)) * t.mult;\n  const same = allowed.filter(a => Math.abs(a.value - t.value) <= tol);\n  // A currency in the narration must match the result's currency for that number\n  // (numbers the result writes without a currency accept any).\n  const ok = same.length > 0 && (!t.cur || same.some(a => !a.cur || a.cur === t.cur));\n  if (!ok) bad.push(m[0].trim());\n}\n// Help, chat and clarify answers run nothing: no \"Let's analyze DDOG…\" promise in their wording.\nif (['help', 'chat', 'clarify'].includes(tool.intent) &&\n    /\\b(let'?s|let me|i('ll| will| am going to)|i'?m going to)\\s+(analy[sz]e|scan|rank|check|run|look)/i.test(text))\n  bad.push('promises an action that did not run');\n// The narration may not claim an action the tool did not do (a new debt is not \"paid off\").\nconst ACTIONS = /\\b(paid off|repaid|paid back|settled|cleared|no longer owe|removed|deleted|sold|cancel+ed)\\b/gi;\nfor (const m of text.matchAll(ACTIONS)) {\n  const stem = m[1].toLowerCase().slice(0, 4);\n  if (!String(tool.reply ?? '').toLowerCase().includes(stem)) bad.push(`claims \"${m[1]}\" but the tool did not`);\n}\n// Scan rankings: the words used about each stock must match its computed contributions.\nconst ranked = tool.data?.analysis?.type === 'rank' ? (tool.data.analysis.ranked ?? []).slice(0, 10) : [];\nbad.push(...wordingProblems(text, ranked));\nconst one = tool.data?.analysis?.type === 'single' ? tool.data.analysis : null;\nif (one?.indicators) bad.push(...wordingProblems(text, [{ symbol: one.symbol, contributions:\n  Object.fromEntries(Object.entries(one.indicators).map(([k, v]) => [k, v.available === false ? null : v.contribution])) }], true));\nif (ranked.length && /\\b(the rest|remaining|all (the )?other|others)\\b[^.]{0,60}\\b(score|scores|have|has|show|are)\\b/i.test(text))\n  bad.push('claims about stocks that are not in the result');\nconst ok = text.length > 0 && !$json.error && bad.length === 0;\nreturn [{ json: { ...tool, reply: ok ? text : tool.reply,\n  data: { ...(tool.data ?? {}), narration: { by_llm: ok, rejected_numbers: bad } } } }];\n"
+      },
+      "name": "Check narration",
+      "id": "43048fa9-e991-59a3-b404-000030c0228d",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3900,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "update request_log set\n    status = $1::jsonb->>'status',\n    intent = $1::jsonb->>'intent',\n    response = $1::jsonb->'response',\n    updated_at = now()\nwhere id = ($1::jsonb->>'request_id')::uuid\nreturning response;",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify({ request_id: $('Pre-route').first().json.request_id, status: $json.status, intent: $json.intent, response: { ok: true, event_id: $('Pre-route').first().json.event_id, intent: $json.intent, status: $json.status, reply: $json.reply, data: $json.data ?? null } }) }}"
+        }
+      },
+      "name": "Finish request",
+      "id": "1a34b014-c1c0-5a71-b60d-380964164811",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        4120,
+        160
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "yaPgLocal0000001",
+          "name": "YA Postgres (local)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.response }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "name": "Respond reply",
+      "id": "257cb9df-30f3-549f-ae34-9fb3eeeb3516",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        4340,
+        160
+      ]
+    }
+  ],
+  "connections": {
+    "POST /ya-chat": {
+      "main": [
+        [
+          {
+            "node": "Auth user",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auth user": {
+      "main": [
+        [
+          {
+            "node": "If: authenticated?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If: authenticated?": {
+      "main": [
+        [
+          {
+            "node": "Validate message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate message": {
+      "main": [
+        [
+          {
+            "node": "If: message valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If: message valid?": {
+      "main": [
+        [
+          {
+            "node": "Register request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 400",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Register request": {
+      "main": [
+        [
+          {
+            "node": "If: new event?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If: new event?": {
+      "main": [
+        [
+          {
+            "node": "Load context",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Replay stored reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Replay stored reply": {
+      "main": [
+        [
+          {
+            "node": "Respond replay",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load context": {
+      "main": [
+        [
+          {
+            "node": "Pre-route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pre-route": {
+      "main": [
+        [
+          {
+            "node": "Switch: route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch: route": {
+      "main": [
+        [
+          {
+            "node": "Parse request (AI)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Direct reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse request (AI)": {
+      "main": [
+        [
+          {
+            "node": "Validate AI JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate AI JSON": {
+      "main": [
+        [
+          {
+            "node": "Switch: intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch: intent": {
+      "main": [
+        [
+          {
+            "node": "Prepare record",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare analysis",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare analysis",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "List records",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Direct reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Direct reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare watchlist",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare record",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare question",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare question",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Chat reply (AI)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Clear scan draft",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Save scan draft",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Drop scan draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear scan draft": {
+      "main": [
+        [
+          {
+            "node": "Prepare scan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare scan": {
+      "main": [
+        [
+          {
+            "node": "Analyse US stock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save scan draft": {
+      "main": [
+        [
+          {
+            "node": "Ask scan question",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask scan question": {
+      "main": [
+        [
+          {
+            "node": "Collect result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Drop scan draft": {
+      "main": [
+        [
+          {
+            "node": "Scan cancelled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scan cancelled": {
+      "main": [
+        [
+          {
+            "node": "Collect result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat reply (AI)": {
+      "main": [
+        [
+          {
+            "node": "Format chat reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format chat reply": {
+      "main": [
+        [
+          {
+            "node": "Finish request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect result": {
+      "main": [
+        [
+          {
+            "node": "Narrate reply (AI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Narrate reply (AI)": {
+      "main": [
+        [
+          {
+            "node": "Check narration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check narration": {
+      "main": [
+        [
+          {
+            "node": "Finish request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare question": {
+      "main": [
+        [
+          {
+            "node": "Answer question",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Answer question": {
+      "main": [
+        [
+          {
+            "node": "Collect result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare watchlist": {
+      "main": [
+        [
+          {
+            "node": "Update watchlist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update watchlist": {
+      "main": [
+        [
+          {
+            "node": "Collect result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare record": {
+      "main": [
+        [
+          {
+            "node": "Record financial entry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare confirmation": {
+      "main": [
+        [
+          {
+            "node": "Record financial entry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare analysis": {
+      "main": [
+        [
+          {
+            "node": "Analyse US stock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List records": {
+      "main": [
+        [
+          {
+            "node": "Format list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record financial entry": {
+      "main": [
+        [
+          {
+            "node": "Collect result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyse US stock": {
+      "main": [
+        [
+          {
+            "node": "Collect result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format list": {
+      "main": [
+        [
+          {
+            "node": "Collect result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Direct reply": {
+      "main": [
+        [
+          {
+            "node": "Collect result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finish request": {
+      "main": [
+        [
+          {
+            "node": "Respond reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat model (parse)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Parse request (AI)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat model (chat)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Chat reply (AI)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat model (narrate)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Narrate reply (AI)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "YAerrorHandler01"
+  }
+}
