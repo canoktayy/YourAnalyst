@@ -1,0 +1,85 @@
+{
+  "id": "YAerrorHandler01",
+  "name": "YA – Error handler",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "On workflow error",
+      "id": "b1dbb31f-f002-5203-9708-b1d1a8442ade",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Error Trigger payload: { execution: { id, url, error, lastNodeExecuted, mode }, workflow: { id, name } }\n// A trigger-level failure has { trigger: { error } } and no execution id.\nconst e = $json;\nconst err = e.execution?.error ?? e.trigger?.error ?? {};\nconst message = String(err.message ?? 'Unknown error').slice(0, 2000)\n  + (err.description ? ` (${String(err.description).slice(0, 500)})` : '');\nconst workflow_name = e.workflow?.name ?? null;\nconst node_name = e.execution?.lastNodeExecuted ?? err.node?.name ?? null;\nconst execution_id = e.execution?.id != null ? String(e.execution.id) : null;\n// n8n fills execution.url from N8N_EDITOR_BASE_URL; build it ourselves if it is missing.\nconst execution_url = e.execution?.url\n  ?? (execution_id && e.workflow?.id ? `${$env.N8N_EDITOR_BASE_URL || 'http://localhost:5678'}/workflow/${e.workflow.id}/executions/${execution_id}` : null);\n// One-line alert, stored in error_log and shown by tests/demo_check.sh.\nconst alert = `${workflow_name ?? 'Unknown workflow'} failed at \"${node_name ?? '?'}\": ${message.slice(0, 200)} | ${execution_url ?? 'no execution URL'}`;\nreturn [{ json: { workflow_name, node_name, execution_id, execution_url, alert, message } }];\n"
+      },
+      "name": "Describe error",
+      "id": "dc2bee56-eca7-50f2-9443-26449f990abe",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- One error_log row; the matching chat request (if any) becomes 'failed' with a stored reply,\n-- so the dedup replay path answers with this message.\nwith l as (select $1::jsonb as l),\nlogged as (\n    insert into error_log (workflow_name, node_name, execution_id, execution_url, event_id, message, alert)\n    select l->>'workflow_name', l->>'node_name', l->>'execution_id', l->>'execution_url',\n           (select event_id from request_log where execution_id = l->>'execution_id' limit 1),\n           l->>'message', l->>'alert'\n    from l\n    returning id, event_id),\nfailed as (\n    update request_log r set\n        status     = 'failed',\n        error      = (select l->>'message' from l),\n        response   = coalesce(r.response, jsonb_build_object(\n                       'ok', true, 'status', 'failed', 'intent', r.intent, 'event_id', r.event_id,\n                       'reply', 'Something went wrong on our side and nothing was saved. Please try again in a minute.')),\n        updated_at = now()\n    where r.execution_id = (select l->>'execution_id' from l)\n      and r.status <> 'done'\n    returning r.id)\nselect (select id from logged) as error_log_id,\n       (select event_id from logged) as event_id,\n       (select count(*) from failed) as requests_failed;",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($json) }}"
+        }
+      },
+      "name": "Log error + fail request",
+      "id": "b5c6953c-a189-532c-b312-596324dbee23",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        440,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "yaPgLocal0000001",
+          "name": "YA Postgres (local)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    }
+  ],
+  "connections": {
+    "On workflow error": {
+      "main": [
+        [
+          {
+            "node": "Describe error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Describe error": {
+      "main": [
+        [
+          {
+            "node": "Log error + fail request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
