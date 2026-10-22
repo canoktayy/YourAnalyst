@@ -1,0 +1,401 @@
+{
+  "id": "YArecordEntry001",
+  "name": "YA – Record financial entry",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "mode",
+              "type": "string"
+            },
+            {
+              "name": "user_id",
+              "type": "string"
+            },
+            {
+              "name": "request_id",
+              "type": "any"
+            },
+            {
+              "name": "event_id",
+              "type": "string"
+            },
+            {
+              "name": "record",
+              "type": "any"
+            }
+          ]
+        }
+      },
+      "name": "Start",
+      "id": "7dd09f10-3088-5f9b-9278-d26abd931e27",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "38280c5b-e735-5a96-9715-f437acd31076",
+                    "leftValue": "={{ $json.mode }}",
+                    "rightValue": "propose",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "propose"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "73d422f3-b1fe-5ead-aa25-a345b4f985be",
+                    "leftValue": "={{ $json.mode }}",
+                    "rightValue": "confirm",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "confirm"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "f7fd940d-72b5-57a2-80d5-6847f5c3882b",
+                    "leftValue": "={{ $json.mode }}",
+                    "rightValue": "cancel",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "cancel"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "name": "Switch: mode",
+      "id": "5285bc8a-0039-568e-ae02-17abcc29c658",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        220,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "update pending_confirmation set status = 'cancelled', resolved_at = now()\nwhere user_id = ($1::jsonb->>'user_id')::uuid and status = 'pending';",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($('Start').first().json) }}"
+        }
+      },
+      "name": "Cancel open confirmation",
+      "id": "8e74b02b-2f05-5f68-93cf-b5fcd2f31cb0",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        460,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "yaPgLocal0000001",
+          "name": "YA Postgres (local)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "alwaysOutputData": true,
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into pending_confirmation (user_id, request_id, record_type, payload)\nselect (j->>'user_id')::uuid, (j->>'request_id')::uuid, j->'record'->>'type', j->'record'->'fields'\nfrom (select $1::jsonb as j) p\nreturning id, record_type, payload, expires_at;",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($('Start').first().json) }}"
+        }
+      },
+      "name": "Create confirmation",
+      "id": "4df99fa4-ec6f-522a-aa11-78d8844e6e74",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        680,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "yaPgLocal0000001",
+          "name": "YA Postgres (local)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst money = (n, c) => new Intl.NumberFormat('en-US',\n  { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n)) + ' ' + c;\nconst describe = (type, f) => {\n  if (type === 'liability') return `Debt to ${f.counterparty}: ${money(f.amount, f.currency)}`;\n  if (type === 'holding') return `Holding: ${f.quantity} ${f.symbol} at ${money(f.cost_per_share, f.cost_currency)} per share (cost ${money(f.quantity * f.cost_per_share, f.cost_currency)})`;\n  if (type === 'sale') {\n    const into = f.account_currency !== f.price_currency\n      ? `${money(f.proceeds_account, f.account_currency)} (${money(f.proceeds, f.price_currency)})`\n      : money(f.proceeds, f.price_currency);\n    return `Sale: ${f.quantity} ${f.symbol}${f.all ? ' (all)' : ''} at ${money(f.price, f.price_currency)} per share`\n      + (f.price_source === 'current' ? ' (latest price)' : '') + `\\nAdd ${into} to ${f.account_name}`;\n  }\n  const kind = f.kind === 'cash' ? 'cash' : 'other';\n  return `Asset (${kind}): ${f.name}: ${money(f.amount, f.currency)}`;\n};\n\nconst row = $json;\nreturn [{ json: {\n  intent: 'record', status: 'awaiting_confirmation',\n  reply: `Shall I save this?\\n${describe(row.record_type, row.payload)}\\nReply \"yes\" to confirm or \"no\" to cancel.`,\n  data: { pending: { record_type: row.record_type, fields: row.payload, expires_at: row.expires_at } },\n} }];\n"
+      },
+      "name": "Confirmation question",
+      "id": "16b490b4-c476-5118-a3a5-142a7d41460c",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Consume the pending row and insert the record in one statement.\nwith j as (select $1::jsonb as j),\np as (\n    update pending_confirmation pc set status = 'confirmed', resolved_at = now()\n    from j\n    where pc.user_id = (j.j->>'user_id')::uuid and pc.status = 'pending' and pc.expires_at > now()\n    returning pc.record_type, pc.payload, pc.user_id, j.j->>'event_id' as event_id),\na as (\n    insert into asset (user_id, kind, name, amount, currency, source_event_id)\n    select user_id, payload->>'kind', payload->>'name', (payload->>'amount')::numeric, payload->>'currency', event_id\n    from p where record_type = 'asset' returning id),\nl as (\n    insert into liability (user_id, counterparty, amount, currency, note, source_event_id)\n    select user_id, payload->>'counterparty', (payload->>'amount')::numeric, payload->>'currency', payload->>'note', event_id\n    from p where record_type = 'liability' returning id),\nh as (\n    insert into holding (user_id, symbol, quantity, cost_per_share, cost_currency, source_event_id)\n    select user_id, payload->>'symbol', (payload->>'quantity')::numeric, (payload->>'cost_per_share')::numeric,\n           payload->>'cost_currency', event_id\n    from p where record_type = 'holding' returning id),\n-- Sale: take the shares out first-in first-out (whole rows deleted, the boundary row\n-- reduced), then add the proceeds, already converted by the router, to the cash account.\nlots as (\n    select h.id, h.quantity,\n           sum(h.quantity) over (order by h.created_at, h.id) as cum,\n           (p.payload->>'quantity')::numeric as sold\n    from holding h join p on p.record_type = 'sale'\n    where h.user_id = p.user_id and h.symbol = p.payload->>'symbol'),\nsold_rows as (\n    delete from holding h using lots\n    where h.id = lots.id and lots.cum <= lots.sold\n    returning h.id),\npart_row as (\n    update holding h set quantity = lots.cum - lots.sold, updated_at = now()\n    from lots\n    where h.id = lots.id and lots.cum > lots.sold and lots.cum - lots.quantity < lots.sold\n    returning h.id),\ns as (\n    update asset t set amount = t.amount + (p.payload->>'proceeds_account')::numeric, updated_at = now()\n    from p\n    where p.record_type = 'sale' and t.id = (p.payload->>'account_id')::uuid and t.user_id = p.user_id\n    returning t.id)\nselect (select record_type from p) as record_type,\n       (select payload from p) as payload,\n       coalesce((select id from a), (select id from l), (select id from h), (select id from s)) as record_id,\n       (select count(*) from sold_rows) + (select count(*) from part_row) as lots_changed;",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($('Start').first().json) }}"
+        }
+      },
+      "name": "Confirm and save",
+      "id": "d099a12c-e1ec-5ca7-873b-acbfaf4de470",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        460,
+        200
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "yaPgLocal0000001",
+          "name": "YA Postgres (local)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with j as (select $1::jsonb as j)\nselect (select row_to_json(n) from v_net_worth n, j where n.user_id = (j.j->>'user_id')::uuid) as totals,\n       (select row_to_json(p) from v_position p, j where p.id = (j.j->>'record_id')::uuid) as position;",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify({ user_id: $('Start').first().json.user_id, record_id: $json.record_id }) }}"
+        }
+      },
+      "name": "Load totals",
+      "id": "3fe08c44-17fe-5d9b-9ea3-9565726d5f9e",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        680,
+        200
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "yaPgLocal0000001",
+          "name": "YA Postgres (local)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst money = (n, c) => new Intl.NumberFormat('en-US',\n  { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n)) + ' ' + c;\nconst describe = (type, f) => {\n  if (type === 'liability') return `Debt to ${f.counterparty}: ${money(f.amount, f.currency)}`;\n  if (type === 'holding') return `Holding: ${f.quantity} ${f.symbol} at ${money(f.cost_per_share, f.cost_currency)} per share (cost ${money(f.quantity * f.cost_per_share, f.cost_currency)})`;\n  if (type === 'sale') {\n    const into = f.account_currency !== f.price_currency\n      ? `${money(f.proceeds_account, f.account_currency)} (${money(f.proceeds, f.price_currency)})`\n      : money(f.proceeds, f.price_currency);\n    return `Sale: ${f.quantity} ${f.symbol}${f.all ? ' (all)' : ''} at ${money(f.price, f.price_currency)} per share`\n      + (f.price_source === 'current' ? ' (latest price)' : '') + `\\nAdd ${into} to ${f.account_name}`;\n  }\n  const kind = f.kind === 'cash' ? 'cash' : 'other';\n  return `Asset (${kind}): ${f.name}: ${money(f.amount, f.currency)}`;\n};\n\nconst saved = $('Confirm and save').first().json;\nif (!saved.record_id) {\n  return [{ json: { intent: 'confirm', status: 'done', data: null,\n    reply: 'There is nothing waiting for confirmation; it may have expired (15 min). Please send the record again.' } }];\n}\nconst { totals, position: p } = $json;\n// Say plainly what changed, so the narrator cannot read \"Debt to Alex\" as a repayment.\nconst DONE = { liability: 'Added a new debt (you owe more now)', holding: 'Added shares to your portfolio',\n               sale: 'Sold shares; the proceeds went to your account', asset: 'Added an asset' };\nconst lines = [`Saved ✓ ${DONE[saved.record_type] ?? 'Saved'}: ${describe(saved.record_type, saved.payload)}`];\nif (p) {\n  if (p.price_status === 'unavailable') {\n    lines.push('No price yet; it arrives with the next price refresh.');\n  } else {\n    const when = new Date(p.price_as_of).toISOString().slice(0, 16).replace('T', ' ') + ' UTC';\n    lines.push(`Latest price ${money(p.last_price, p.price_currency)} (${when}${p.price_status === 'stale' ? ', stale' : ''}) · Value ${money(p.position_value, p.price_currency)} · Unrealised P/L ${p.unrealised_pl >= 0 ? '+' : ''}${money(p.unrealised_pl, p.price_currency)}`);\n  }\n}\nlines.push(`Net worth: ${money(totals.net_worth, totals.base_currency)}`);\nreturn [{ json: { intent: 'confirm', status: 'done', reply: lines.join('\\n'),\n  data: { record_type: saved.record_type, record_id: saved.record_id, totals, position: p } } }];\n"
+      },
+      "name": "Saved reply",
+      "id": "eb1587ff-68cd-5df0-8846-945792376153",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with c as (\n    update pending_confirmation set status = 'cancelled', resolved_at = now()\n    where user_id = ($1::jsonb->>'user_id')::uuid and status = 'pending'\n    returning id)\nselect count(*)::int as cancelled from c;",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($('Start').first().json) }}"
+        }
+      },
+      "name": "Cancel confirmation",
+      "id": "491e09e6-3f9f-523a-9c51-5b1e26deaef2",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        460,
+        400
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "yaPgLocal0000001",
+          "name": "YA Postgres (local)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst money = (n, c) => new Intl.NumberFormat('en-US',\n  { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n)) + ' ' + c;\nconst describe = (type, f) => {\n  if (type === 'liability') return `Debt to ${f.counterparty}: ${money(f.amount, f.currency)}`;\n  if (type === 'holding') return `Holding: ${f.quantity} ${f.symbol} at ${money(f.cost_per_share, f.cost_currency)} per share (cost ${money(f.quantity * f.cost_per_share, f.cost_currency)})`;\n  if (type === 'sale') {\n    const into = f.account_currency !== f.price_currency\n      ? `${money(f.proceeds_account, f.account_currency)} (${money(f.proceeds, f.price_currency)})`\n      : money(f.proceeds, f.price_currency);\n    return `Sale: ${f.quantity} ${f.symbol}${f.all ? ' (all)' : ''} at ${money(f.price, f.price_currency)} per share`\n      + (f.price_source === 'current' ? ' (latest price)' : '') + `\\nAdd ${into} to ${f.account_name}`;\n  }\n  const kind = f.kind === 'cash' ? 'cash' : 'other';\n  return `Asset (${kind}): ${f.name}: ${money(f.amount, f.currency)}`;\n};\n\nconst n = $json.cancelled;\nreturn [{ json: { intent: 'cancel', status: 'done', data: { cancelled: n },\n  reply: n ? \"OK, I didn't save it.\"\n           : 'There was nothing waiting to cancel.' } }];\n"
+      },
+      "name": "Cancelled reply",
+      "id": "2f88c443-6f3b-5a02-97ea-285819d7bc41",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Switch: mode",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch: mode": {
+      "main": [
+        [
+          {
+            "node": "Cancel open confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Confirm and save",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Cancel confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cancel open confirmation": {
+      "main": [
+        [
+          {
+            "node": "Create confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create confirmation": {
+      "main": [
+        [
+          {
+            "node": "Confirmation question",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirm and save": {
+      "main": [
+        [
+          {
+            "node": "Load totals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load totals": {
+      "main": [
+        [
+          {
+            "node": "Saved reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cancel confirmation": {
+      "main": [
+        [
+          {
+            "node": "Cancelled reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "YAerrorHandler01"
+  }
+}
