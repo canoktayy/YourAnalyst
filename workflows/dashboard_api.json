@@ -1,0 +1,732 @@
+{
+  "id": "YAdashboardApi01",
+  "name": "YA – Dashboard API",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "ya-dashboard",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "GET /ya-dashboard",
+      "id": "260da0b0-9431-5429-a458-3d41f761d2e8",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "72888188-f25d-5109-af8f-284bfaae2cb3"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ya-record",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "POST /ya-record",
+      "id": "4c00002a-d272-5292-a8c0-fa186ae9eb25",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        240
+      ],
+      "webhookId": "986c383b-8dbe-5026-998e-a1e16480885b"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select id as user_id, base_currency\nfrom app_user\nwhere api_token_hash = encode(digest($1::jsonb->>'token', 'sha256'), 'hex');",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify({ token: $json.headers['x-ya-token'] ?? null }) }}"
+        }
+      },
+      "name": "Auth user",
+      "id": "e0c550a7-cdd1-5317-8c50-e29df19599e6",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        240,
+        120
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "yaPgLocal0000001",
+          "name": "YA Postgres (local)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b6f8af9c-089b-5536-a357-ab7ff76e7f5e",
+              "leftValue": "={{ $json.user_id }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "name": "If: authenticated?",
+      "id": "52fac36f-f7f2-544c-bd63-bc0e451b996a",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        460,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": false, \"error\": \"Missing or invalid X-YA-Token\" } }}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "name": "Respond 401",
+      "id": "ba6a1ea3-fe90-5398-93f7-0e1b80b197fd",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7547d170-8165-51dc-a74f-805f4d3eb8ad",
+              "leftValue": "={{ $('POST /ya-record').isExecuted }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "name": "If: record write?",
+      "id": "8fc4595f-82a9-5fd9-ac36-3228d97a527f",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        680,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate and normalise a dashboard form write before it reaches the database.\nconst body = $('POST /ya-record').first().json.body ?? {};\nconst user_id = $('Auth user').first().json.user_id;\nconst errors = [];\n\nconst TYPES = ['asset', 'liability', 'holding', 'watchlist'];\nconst ACTIONS = ['create', 'update', 'delete'];\nconst UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\n\nconst type = String(body.type ?? '');\nconst action = String(body.action ?? '');\nconst id = body.id ?? null;\nconst f = body.fields ?? {};\n\nif (!TYPES.includes(type)) errors.push(`type must be one of ${TYPES.join(', ')}`);\nif (!ACTIONS.includes(action)) errors.push(`action must be one of ${ACTIONS.join(', ')}`);\nif (action !== 'create' && !UUID.test(String(id))) errors.push('id must be a record uuid');\n\nconst text = (v, max) => String(v ?? '').trim().slice(0, max);\nconst cur = v => String(v ?? '').trim().toUpperCase();\nconst num = v => (typeof v === 'string' ? Number(v.replace(',', '.')) : Number(v));\nconst checkCur = (c, field) => { if (!/^[A-Z]{3}$/.test(c)) errors.push(`${field} must be a 3-letter currency code`); };\n\nlet fields = {};\nif (action !== 'delete') {\n  if (type === 'asset') {\n    fields = {\n      kind: f.kind === 'other' ? 'other' : 'cash',\n      name: text(f.name, 80),\n      amount: num(f.amount),\n      currency: cur(f.currency),\n      color: /^#[0-9a-f]{6}$/i.test(f.color ?? '') ? f.color : null,\n    };\n    if (!fields.name) errors.push('name is required');\n    if (!(fields.amount >= 0)) errors.push('amount must be a number >= 0');\n    checkCur(fields.currency, 'currency');\n  } else if (type === 'liability') {\n    fields = {\n      counterparty: text(f.counterparty, 80),\n      amount: num(f.amount),\n      currency: cur(f.currency),\n      note: text(f.note, 200) || null,\n    };\n    if (!fields.counterparty) errors.push('counterparty is required');\n    if (!(fields.amount > 0)) errors.push('amount must be a number > 0');\n    checkCur(fields.currency, 'currency');\n  } else if (type === 'holding') {\n    fields = {\n      symbol: String(f.symbol ?? '').trim().toUpperCase(),\n      name: text(f.name, 80) || null,\n      quantity: num(f.quantity),\n      cost_per_share: num(f.cost_per_share ?? 0),\n      cost_currency: cur(f.cost_currency || 'USD'),\n    };\n    if (!/^[A-Z][A-Z0-9.\\-]{0,9}$/.test(fields.symbol)) errors.push('symbol is not a valid ticker');\n    if (!(fields.quantity > 0)) errors.push('quantity must be a number > 0');\n    if (!(fields.cost_per_share >= 0)) errors.push('cost_per_share must be a number >= 0');\n    checkCur(fields.cost_currency, 'cost_currency');\n  } else if (type === 'watchlist') {\n    // create: symbol (+ optional name); update: position only (drag and drop order).\n    if (action === 'create') {\n      fields = { symbol: String(f.symbol ?? '').trim().toUpperCase(), name: text(f.name, 80) || null };\n      if (!/^[A-Z0-9^][A-Z0-9.\\-=^]{0,14}$/.test(fields.symbol)) errors.push('symbol is not a valid ticker');\n    } else {\n      fields = { position: num(f.position) };\n      if (!Number.isFinite(fields.position)) errors.push('position must be a number');\n    }\n  }\n}\n\nreturn [{ json: { valid: errors.length === 0, errors, type, action, id, user_id, fields } }];\n"
+      },
+      "name": "Validate record",
+      "id": "044850c7-b262-5391-9c93-dde841c29c66",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "8cff74b9-e268-518a-b453-2ff33e3d7e97",
+              "leftValue": "={{ $json.valid }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "name": "If: record valid?",
+      "id": "5491cc6a-6332-5fc6-b49f-9a5122e12282",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1120,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": false, \"error\": \"Invalid record\", \"details\": $json.errors } }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "name": "Respond 400",
+      "id": "3adf7442-a4ac-528e-bb68-13016716b13d",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1340,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "92f63166-9d79-5d59-aa48-a18fa14f0efb",
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "asset",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "asset"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "39da8b39-d1c1-5218-a3dc-4246c08d081e",
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "liability",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "liability"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "a981442f-33fb-56d7-87d1-7f08a0695efe",
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "holding",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "holding"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "bf000947-fe9c-5d5e-8aff-79ff23a1550c",
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "watchlist",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "watchlist"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "name": "Switch: record type",
+      "id": "4e01c4f4-a260-56ea-ae27-ab6d99a0690e",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1340,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with p as (select $1::jsonb as j),\ndel as (\n    delete from asset t using p\n    where p.j->>'action' = 'delete' and t.id = (p.j->>'id')::uuid and t.user_id = (p.j->>'user_id')::uuid\n    returning t.id),\nupd as (\n    update asset t set\n        kind = (p.j->'fields'->>'kind'),\n        name = (p.j->'fields'->>'name'),\n        amount = (p.j->'fields'->>'amount')::numeric,\n        currency = (p.j->'fields'->>'currency'),\n        color = (p.j->'fields'->>'color'),\n        updated_at = now()\n    from p\n    where p.j->>'action' = 'update' and t.id = (p.j->>'id')::uuid and t.user_id = (p.j->>'user_id')::uuid\n    returning t.id),\nins as (\n    insert into asset (user_id, kind, name, amount, currency, color)\n    select (p.j->>'user_id')::uuid, (p.j->'fields'->>'kind'), (p.j->'fields'->>'name'), (p.j->'fields'->>'amount')::numeric, (p.j->'fields'->>'currency'), (p.j->'fields'->>'color')\n    from p\n    where p.j->>'action' = 'create'\n    returning id)\nselect coalesce((select id from del), (select id from upd), (select id from ins)) as record_id;",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($json) }}"
+        }
+      },
+      "name": "Write asset",
+      "id": "b9795dc7-5d2d-5d47-b797-14e6af1bafe5",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1580,
+        80
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "yaPgLocal0000001",
+          "name": "YA Postgres (local)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with p as (select $1::jsonb as j),\ndel as (\n    delete from liability t using p\n    where p.j->>'action' = 'delete' and t.id = (p.j->>'id')::uuid and t.user_id = (p.j->>'user_id')::uuid\n    returning t.id),\nupd as (\n    update liability t set\n        counterparty = (p.j->'fields'->>'counterparty'),\n        amount = (p.j->'fields'->>'amount')::numeric,\n        currency = (p.j->'fields'->>'currency'),\n        note = (p.j->'fields'->>'note'),\n        updated_at = now()\n    from p\n    where p.j->>'action' = 'update' and t.id = (p.j->>'id')::uuid and t.user_id = (p.j->>'user_id')::uuid\n    returning t.id),\nins as (\n    insert into liability (user_id, counterparty, amount, currency, note)\n    select (p.j->>'user_id')::uuid, (p.j->'fields'->>'counterparty'), (p.j->'fields'->>'amount')::numeric, (p.j->'fields'->>'currency'), (p.j->'fields'->>'note')\n    from p\n    where p.j->>'action' = 'create'\n    returning id)\nselect coalesce((select id from del), (select id from upd), (select id from ins)) as record_id;",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($json) }}"
+        }
+      },
+      "name": "Write liability",
+      "id": "84476b11-4caf-5c61-a6a5-c155b4124864",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1580,
+        240
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "yaPgLocal0000001",
+          "name": "YA Postgres (local)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with p as (select $1::jsonb as j),\ndel as (\n    delete from watchlist t using p\n    where p.j->>'action' = 'delete' and t.id = (p.j->>'id')::uuid and t.user_id = (p.j->>'user_id')::uuid\n    returning t.id),\nupd as (\n    update watchlist t set position = (p.j->'fields'->>'position')::double precision\n    from p\n    where p.j->>'action' = 'update' and t.id = (p.j->>'id')::uuid and t.user_id = (p.j->>'user_id')::uuid\n    returning t.id),\nins as (\n    insert into watchlist (user_id, symbol, name)\n    select (p.j->>'user_id')::uuid, p.j->'fields'->>'symbol', p.j->'fields'->>'name'\n    from p where p.j->>'action' = 'create'\n    on conflict (user_id, symbol) do update set name = coalesce(excluded.name, watchlist.name)\n    returning id)\nselect coalesce((select id from del), (select id from upd), (select id from ins)) as record_id;",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($json) }}"
+        }
+      },
+      "name": "Write watchlist",
+      "id": "9a627ef9-aec9-5052-8720-7652f6e1d55b",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1580,
+        560
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "yaPgLocal0000001",
+          "name": "YA Postgres (local)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with p as (select $1::jsonb as j),\ndel as (\n    delete from holding t using p\n    where p.j->>'action' = 'delete' and t.id = (p.j->>'id')::uuid and t.user_id = (p.j->>'user_id')::uuid\n    returning t.id),\nupd as (\n    update holding t set\n        symbol = (p.j->'fields'->>'symbol'),\n        name = (p.j->'fields'->>'name'),\n        quantity = (p.j->'fields'->>'quantity')::numeric,\n        cost_per_share = (p.j->'fields'->>'cost_per_share')::numeric,\n        cost_currency = (p.j->'fields'->>'cost_currency'),\n        updated_at = now()\n    from p\n    where p.j->>'action' = 'update' and t.id = (p.j->>'id')::uuid and t.user_id = (p.j->>'user_id')::uuid\n    returning t.id),\nins as (\n    insert into holding (user_id, symbol, name, quantity, cost_per_share, cost_currency)\n    select (p.j->>'user_id')::uuid, (p.j->'fields'->>'symbol'), (p.j->'fields'->>'name'), (p.j->'fields'->>'quantity')::numeric, (p.j->'fields'->>'cost_per_share')::numeric, (p.j->'fields'->>'cost_currency')\n    from p\n    where p.j->>'action' = 'create'\n    returning id)\nselect coalesce((select id from del), (select id from upd), (select id from ins)) as record_id;",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($json) }}"
+        }
+      },
+      "name": "Write holding",
+      "id": "ddc3b123-c750-50b7-aaac-fcdc45dfaa18",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1580,
+        400
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "yaPgLocal0000001",
+          "name": "YA Postgres (local)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c27642a6-0e6f-5f10-bc23-b7aa9bd17ef9",
+              "leftValue": "={{ $json.record_id }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "name": "If: record found?",
+      "id": "bd9eb4e8-2872-5ecf-baa2-62cd1e0b389d",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1800,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": false, \"error\": \"Record not found for this user\" } }}",
+        "options": {
+          "responseCode": 404
+        }
+      },
+      "name": "Respond 404",
+      "id": "0333dcf4-1d9b-5c4f-bb96-e060e4fd517b",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2020,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Everything the dashboard renders, in one round trip. Totals come from SQL views.\nwith u as (select * from app_user where id = $1::uuid),\nbase as (select f.usd_per_unit from fx_rate f join u on f.currency = u.base_currency)\nselect json_build_object(\n    'user', (select json_build_object('id', id, 'name', display_name, 'base_currency', base_currency) from u),\n    'totals', (select row_to_json(n) from v_net_worth n where n.user_id = $1::uuid),\n    'assets', coalesce((\n        select json_agg(a order by a.created_at)\n        from (select id, kind, name, amount, currency, color, created_at\n              from asset where user_id = $1::uuid) a), '[]'::json),\n    'liabilities', coalesce((\n        select json_agg(l order by l.created_at)\n        from (select id, counterparty, amount, currency, note, created_at\n              from liability where user_id = $1::uuid) l), '[]'::json),\n    'positions', coalesce((\n        select json_agg(p order by p.symbol)\n        from (select id, symbol, name, quantity, cost_per_share, cost_currency, last_price,\n                     price_currency, change_pct, price_as_of, price_status, position_value,\n                     cost_basis, unrealised_pl\n              from v_position where user_id = $1::uuid) p), '[]'::json),\n    -- rates[c] = units of base currency per 1 unit of c\n    'watchlist', coalesce((\n        select json_agg(w order by w.position, w.created_at)\n        from (select w.id, w.symbol, w.name, w.position, w.created_at, q.price, q.change_pct,\n                     q.currency as price_currency, q.as_of as price_as_of\n              from watchlist w left join quote q on q.symbol = w.symbol\n              where w.user_id = $1::uuid) w), '[]'::json),\n    'rates', (select json_object_agg(f.currency, f.usd_per_unit / base.usd_per_unit)\n              from fx_rate f, base),\n    'fx_as_of', (select max(as_of) from fx_rate where source <> 'fixed'),\n    'quotes_as_of', (select max(as_of) from quote)\n) as dashboard;",
+        "options": {
+          "queryReplacement": "={{ $('Auth user').first().json.user_id }}"
+        }
+      },
+      "name": "Load dashboard",
+      "id": "67d7d59a-5384-55b4-be48-0e7fed24c942",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2020,
+        40
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "yaPgLocal0000001",
+          "name": "YA Postgres (local)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true, ...$json.dashboard } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "name": "Respond dashboard",
+      "id": "3f5a6cf6-2262-5dfe-af76-8956b2ce610e",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2240,
+        40
+      ]
+    }
+  ],
+  "connections": {
+    "GET /ya-dashboard": {
+      "main": [
+        [
+          {
+            "node": "Auth user",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST /ya-record": {
+      "main": [
+        [
+          {
+            "node": "Auth user",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auth user": {
+      "main": [
+        [
+          {
+            "node": "If: authenticated?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If: authenticated?": {
+      "main": [
+        [
+          {
+            "node": "If: record write?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If: record write?": {
+      "main": [
+        [
+          {
+            "node": "Validate record",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Load dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate record": {
+      "main": [
+        [
+          {
+            "node": "If: record valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If: record valid?": {
+      "main": [
+        [
+          {
+            "node": "Switch: record type",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 400",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch: record type": {
+      "main": [
+        [
+          {
+            "node": "Write asset",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Write liability",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Write holding",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Write watchlist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write watchlist": {
+      "main": [
+        [
+          {
+            "node": "If: record found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write asset": {
+      "main": [
+        [
+          {
+            "node": "If: record found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write liability": {
+      "main": [
+        [
+          {
+            "node": "If: record found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write holding": {
+      "main": [
+        [
+          {
+            "node": "If: record found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If: record found?": {
+      "main": [
+        [
+          {
+            "node": "Load dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 404",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load dashboard": {
+      "main": [
+        [
+          {
+            "node": "Respond dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "YAerrorHandler01"
+  }
+}

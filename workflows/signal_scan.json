@@ -1,0 +1,347 @@
+{
+  "id": "YAsignalScan0001",
+  "name": "YA – Signal scan",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ya-scan",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "POST /ya-scan",
+      "id": "e1605ebb-f4b2-5121-9379-1fe29747bafb",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        200
+      ],
+      "webhookId": "0c2b7a05-6c49-532a-bbab-a48f3eb39c90"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select id as user_id, base_currency\nfrom app_user\nwhere api_token_hash = encode(digest($1::jsonb->>'token', 'sha256'), 'hex');",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify({ token: $json.headers['x-ya-token'] ?? null }) }}"
+        }
+      },
+      "name": "Auth user",
+      "id": "e0c550a7-cdd1-5317-8c50-e29df19599e6",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        220,
+        200
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "yaPgLocal0000001",
+          "name": "YA Postgres (local)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b6f8af9c-089b-5536-a357-ab7ff76e7f5e",
+              "leftValue": "={{ $json.user_id }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "name": "If: authenticated?",
+      "id": "52fac36f-f7f2-544c-bd63-bc0e451b996a",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": false, \"error\": \"Missing or invalid X-YA-Token\" } }}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "name": "Respond 401",
+      "id": "ba6a1ea3-fe90-5398-93f7-0e1b80b197fd",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Only the four indicators of the proposal; at least one. Single mode needs a ticker.\nconst body = $('POST /ya-scan').first().json.body ?? {};\nconst ALLOWED = ['rsi', 'macd', 'ma_trend', 'volume'];\nconst errors = [];\nconst mode = body.mode === 'single' ? 'single' : 'rank';\nconst indicators = [...new Set((Array.isArray(body.indicators) ? body.indicators : [])\n  .map(x => String(x).toLowerCase()).filter(x => ALLOWED.includes(x)))];\nif (!indicators.length) errors.push(`indicators: choose at least one of ${ALLOWED.join(', ')}`);\nconst symbol = String(body.symbol ?? '').trim().toUpperCase().replace(/^\\$/, '');\nconst UNIVERSES = ['demo', 'dow30', 'nasdaq100', 'sp500', 'nyse'];\nconst universe = UNIVERSES.includes(body.universe) ? body.universe : 'demo';\nif (mode === 'single' && !/^[A-Z][A-Z0-9.\\-]{0,9}$/.test(symbol)) errors.push('symbol: enter a valid US ticker, e.g. AAPL');\nreturn [{ json: { valid: errors.length === 0, errors, mode, user_id: $('Auth user').first().json.user_id,\n  request_id: null, event_id: `scan-${$execution.id}`,\n  // top = whole universe: the page shows every ranked row (paged), the LLM sees the top 5.\n  analysis: { symbol: mode === 'single' ? symbol : null, indicators, universe, top: 3000 } } }];\n"
+      },
+      "name": "Validate scan",
+      "id": "241d5f97-f258-5027-ba09-fee916213cb6",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c380d389-87b1-5a03-bda6-2c1e97255c76",
+              "leftValue": "={{ $json.valid }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "name": "If: scan valid?",
+      "id": "da6fc518-598a-500a-996c-930d651c3bb7",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": false, \"error\": $json.errors.join(\"; \") } }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "name": "Respond 400",
+      "id": "3adf7442-a4ac-528e-bb68-13016716b13d",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "YAanalyseStock01",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "mode": "={{ $json.mode }}",
+            "user_id": "={{ $json.user_id }}",
+            "request_id": "={{ $json.request_id }}",
+            "event_id": "={{ $json.event_id }}",
+            "analysis": "={{ $json.analysis }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "mode",
+              "displayName": "mode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "request_id",
+              "displayName": "request_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "any"
+            },
+            {
+              "id": "event_id",
+              "displayName": "event_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "analysis",
+              "displayName": "analysis",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "name": "Analyse US stock",
+      "id": "2200d25a-39ed-5a1f-918a-2f6034bae5f7",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1100,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: $json.status !== \"failed\", status: $json.status, intent: $json.intent, reply: $json.reply, data: $json.data ?? null } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "name": "Respond scan",
+      "id": "ac17740f-3175-5d53-84ae-f63032036f57",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1320,
+        160
+      ]
+    }
+  ],
+  "connections": {
+    "POST /ya-scan": {
+      "main": [
+        [
+          {
+            "node": "Auth user",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auth user": {
+      "main": [
+        [
+          {
+            "node": "If: authenticated?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If: authenticated?": {
+      "main": [
+        [
+          {
+            "node": "Validate scan",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate scan": {
+      "main": [
+        [
+          {
+            "node": "If: scan valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If: scan valid?": {
+      "main": [
+        [
+          {
+            "node": "Analyse US stock",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 400",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyse US stock": {
+      "main": [
+        [
+          {
+            "node": "Respond scan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "YAerrorHandler01"
+  }
+}

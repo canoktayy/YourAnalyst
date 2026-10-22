@@ -1,0 +1,624 @@
+{
+  "id": "YAvaluationRfrsh",
+  "name": "YA – Valuation refresh",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "seconds",
+              "secondsInterval": 10
+            }
+          ]
+        }
+      },
+      "name": "Every 10 s (quotes)",
+      "id": "7ca18404-fa57-5573-aed6-f346a32066e5",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      },
+      "name": "Every 30 min (FX)",
+      "id": "38ffbf1c-4119-51fe-b247-35a959f7a20d",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        360
+      ]
+    },
+    {
+      "parameters": {},
+      "name": "Run now (manual)",
+      "id": "edc483fd-ca7d-549e-85d0-53e369e072a4",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ya-refresh",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "POST /ya-refresh",
+      "id": "f6f9558d-b639-5be2-90b7-bcae51eff5f3",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -660,
+        560
+      ],
+      "webhookId": "a1b0fc6a-a4d5-56d6-a0c0-b143bf6835cc"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select id as user_id, base_currency\nfrom app_user\nwhere api_token_hash = encode(digest($1::jsonb->>'token', 'sha256'), 'hex');",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify({ token: $json.headers['x-ya-token'] ?? null }) }}"
+        }
+      },
+      "name": "Auth user",
+      "id": "e0c550a7-cdd1-5317-8c50-e29df19599e6",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -440,
+        560
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "yaPgLocal0000001",
+          "name": "YA Postgres (local)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b6f8af9c-089b-5536-a357-ab7ff76e7f5e",
+              "leftValue": "={{ $json.user_id }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "name": "If: authenticated?",
+      "id": "52fac36f-f7f2-544c-bd63-bc0e451b996a",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -220,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": false, \"error\": \"Missing or invalid X-YA-Token\" } }}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "name": "Respond 401",
+      "id": "ba6a1ea3-fe90-5398-93f7-0e1b80b197fd",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": true, \"status\": \"refresh started\" } }}",
+        "options": {
+          "responseCode": 202
+        }
+      },
+      "name": "Respond 202",
+      "id": "91834cd8-e997-5c04-87ee-c556a9c68eb6",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- What the dashboard shows. Scan universes are priced by the analysis API.\nselect symbol from holding\nunion\nselect symbol from watchlist\norder by 1;",
+        "options": {}
+      },
+      "name": "Tracked symbols",
+      "id": "29a95511-98b2-5704-a34e-6149f9836a2a",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        260,
+        -100
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "yaPgLocal0000001",
+          "name": "YA Postgres (local)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "url": "=https://query1.finance.yahoo.com/v8/finance/chart/{{ encodeURIComponent($json.symbol) }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "range",
+              "value": "1d"
+            },
+            {
+              "name": "interval",
+              "value": "1d"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 5,
+              "batchInterval": 500
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "name": "Fetch quote (Yahoo)",
+      "id": "cd323d8a-8cab-5e05-a79d-3574e2cfc1ef",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        500,
+        -100
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Turn Yahoo responses into quote rows.\n// A failed or implausible quote becomes price = null: the upsert then keeps the\n// last good price, which the dashboard shows as 'stale' (or 'unavailable' if none).\nconst symbols = $('Tracked symbols').all();\nconst now = Date.now();\n\nconst rows = $input.all().map((item, i) => {\n  const symbol = symbols[item.pairedItem?.item ?? i].json.symbol;\n  const meta = item.json?.chart?.result?.[0]?.meta;\n  const price = Number(meta?.regularMarketPrice);\n  const ts = Number(meta?.regularMarketTime) * 1000;\n  const ok = !!meta\n    && String(meta.symbol).toUpperCase() === symbol.toUpperCase()\n    && Number.isFinite(price) && price > 0\n    && /^[A-Z]{3}$/.test(meta.currency ?? '')\n    && Number.isFinite(ts) && ts <= now + 5 * 60 * 1000;\n  const prev = Number(meta?.chartPreviousClose ?? meta?.previousClose);\n  const err = item.json?.error;\n  return {\n    symbol,\n    price: ok ? price : null,\n    change_pct: ok && prev > 0 ? Math.round((price / prev - 1) * 1e6) / 1e4 : null,\n    currency: ok ? meta.currency : 'USD',\n    as_of: ok ? new Date(ts).toISOString() : null,\n    source: 'yahoo',\n    error: ok ? null : String(err?.message ?? err ?? 'invalid quote payload'),\n  };\n});\n\nconst failed = rows.filter(r => r.price === null);\nreturn [{ json: {\n  rows,\n  ok_count: rows.length - failed.length,\n  failed: failed.map(r => `${r.symbol}: ${r.error}`),\n} }];\n"
+      },
+      "name": "Validate quotes",
+      "id": "13ec1d1a-2ed9-553d-82ac-9324b0de5621",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        740,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into quote (symbol, price, change_pct, currency, as_of, source, fetched_at)\nselect r.symbol, r.price, r.change_pct, r.currency, r.as_of, r.source, now()\nfrom jsonb_to_recordset($1::jsonb)\n     as r(symbol text, price numeric, change_pct numeric, currency char(3), as_of timestamptz, source text)\non conflict (symbol) do update set\n    price      = coalesce(excluded.price, quote.price),\n    change_pct = case when excluded.price is null then quote.change_pct else excluded.change_pct end,\n    currency   = case when excluded.price is null then quote.currency   else excluded.currency   end,\n    as_of      = coalesce(excluded.as_of, quote.as_of),\n    source     = case when excluded.price is null then quote.source     else excluded.source     end,\n    fetched_at = case when excluded.price is null then quote.fetched_at else excluded.fetched_at end\nreturning symbol, price, as_of;",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($json.rows) }}"
+        }
+      },
+      "name": "Upsert quotes",
+      "id": "615e7e6a-60ab-5c1a-96d3-cad696cd6a45",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        980,
+        -100
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "yaPgLocal0000001",
+          "name": "YA Postgres (local)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Currencies in use, plus common ones so the dashboard can always convert them.\nselect currency from asset\nunion select currency from liability\nunion select cost_currency from holding\nunion select base_currency from app_user\nunion select unnest(array['EUR', 'TRY', 'GBP']);",
+        "options": {}
+      },
+      "name": "Tracked currencies",
+      "id": "eb2a3978-2354-5a61-9651-8652b4c9ca41",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        260,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "yaPgLocal0000001",
+          "name": "YA Postgres (local)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "jsCode": "// One request for all currencies in use (USD is the anchor, always 1).\nconst currencies = [...new Set(\n  $input.all().map(i => String(i.json.currency).trim().toUpperCase())\n)].filter(c => /^[A-Z]{3}$/.test(c) && c !== 'USD');\n\nreturn [{ json: { currencies, symbols: currencies.join(',') } }];\n"
+      },
+      "name": "Build FX request",
+      "id": "e1cd87fc-0591-5a2a-b9a4-0526568541b3",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.frankfurter.dev/v1/latest",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "base",
+              "value": "USD"
+            },
+            {
+              "name": "symbols",
+              "value": "={{ $json.symbols }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "name": "Fetch FX (Frankfurter)",
+      "id": "55275cfa-4905-53d1-a0bf-c61eafc93bde",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        740,
+        320
+      ],
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Frankfurter returns units per 1 USD; the DB stores USD per 1 unit.\nconst res = $input.first().json;\nconst wanted = $('Build FX request').first().json.currencies;\n\nif (res.base !== 'USD') throw new Error(`Unexpected FX base: ${res.base}`);\nif (!/^\\d{4}-\\d{2}-\\d{2}$/.test(res.date ?? '')) throw new Error(`Missing FX date: ${res.date}`);\n\nconst rates = res.rates ?? {};\nconst valid = c => Number.isFinite(Number(rates[c])) && Number(rates[c]) > 0;\n\nreturn [{ json: {\n  rows: wanted.filter(valid).map(c => ({\n    currency: c,\n    usd_per_unit: 1 / Number(rates[c]),\n    as_of: `${res.date}T00:00:00Z`,\n    source: 'frankfurter (ECB)',\n  })),\n  missing: wanted.filter(c => !valid(c)),\n} }];\n"
+      },
+      "name": "Validate FX",
+      "id": "516f7ae3-e513-55e0-944e-cf752072201f",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        980,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const err = $json.error ?? {};\nconst msg = String(err.message ?? err ?? 'FX request failed').slice(0, 1000);\nreturn [{ json: { log: {\n  workflow_name: $workflow.name,\n  node_name: 'Fetch FX (Frankfurter)',\n  execution_id: String($execution.id),\n  event_id: null,\n  message: `FX fetch failed after retries, kept last rates (stale after 3 days): ${msg}`,\n} } }];\n"
+      },
+      "name": "FX failed: keep last rates",
+      "id": "86b4ca61-ff34-525d-8bbe-aad36ea97617",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        980,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into error_log (workflow_name, node_name, execution_id, event_id, message)\nselect l->>'workflow_name', l->>'node_name', l->>'execution_id', l->>'event_id', l->>'message'\nfrom (select $1::jsonb as l) x\nreturning id;",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($json.log) }}"
+        }
+      },
+      "name": "Log FX failure",
+      "id": "50f681f4-6922-584c-a9c7-84315aa52b8c",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1220,
+        520
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "yaPgLocal0000001",
+          "name": "YA Postgres (local)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into fx_rate (currency, usd_per_unit, as_of, source, fetched_at)\nselect r.currency, r.usd_per_unit, r.as_of, r.source, now()\nfrom jsonb_to_recordset($1::jsonb)\n     as r(currency char(3), usd_per_unit numeric, as_of timestamptz, source text)\non conflict (currency) do update set\n    usd_per_unit = excluded.usd_per_unit,\n    as_of        = excluded.as_of,\n    source       = excluded.source,\n    fetched_at   = excluded.fetched_at\nreturning currency, usd_per_unit, as_of;",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($json.rows) }}"
+        }
+      },
+      "name": "Upsert FX rates",
+      "id": "1d45bb13-c6c8-5b63-9c29-3ad5a2ffd27e",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1220,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "yaPgLocal0000001",
+          "name": "YA Postgres (local)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    }
+  ],
+  "connections": {
+    "Every 10 s (quotes)": {
+      "main": [
+        [
+          {
+            "node": "Tracked symbols",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every 30 min (FX)": {
+      "main": [
+        [
+          {
+            "node": "Tracked currencies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run now (manual)": {
+      "main": [
+        [
+          {
+            "node": "Tracked symbols",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Tracked currencies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST /ya-refresh": {
+      "main": [
+        [
+          {
+            "node": "Auth user",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auth user": {
+      "main": [
+        [
+          {
+            "node": "If: authenticated?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If: authenticated?": {
+      "main": [
+        [
+          {
+            "node": "Respond 202",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond 202": {
+      "main": [
+        [
+          {
+            "node": "Tracked symbols",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Tracked currencies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tracked symbols": {
+      "main": [
+        [
+          {
+            "node": "Fetch quote (Yahoo)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch quote (Yahoo)": {
+      "main": [
+        [
+          {
+            "node": "Validate quotes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate quotes": {
+      "main": [
+        [
+          {
+            "node": "Upsert quotes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tracked currencies": {
+      "main": [
+        [
+          {
+            "node": "Build FX request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build FX request": {
+      "main": [
+        [
+          {
+            "node": "Fetch FX (Frankfurter)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch FX (Frankfurter)": {
+      "main": [
+        [
+          {
+            "node": "Validate FX",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "FX failed: keep last rates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FX failed: keep last rates": {
+      "main": [
+        [
+          {
+            "node": "Log FX failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate FX": {
+      "main": [
+        [
+          {
+            "node": "Upsert FX rates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "YAerrorHandler01"
+  }
+}
