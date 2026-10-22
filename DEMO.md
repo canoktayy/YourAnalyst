@@ -48,7 +48,7 @@ Numbers in the table are from the reset data on 17 Oct; prices move, so yours wi
 ## Likely questions
 
 - **Why a Webhook and not the Chat Trigger?** The brief bans the Chat Message trigger. The teacher approved a standard Webhook from my own web chat instead of Telegram or Discord.
-- **How do you stop the AI inventing numbers?** Two layers. The first AI only returns JSON (which tool), and a Code node checks it; amounts must appear in the user's words. Tools compute everything with SQL, code or Python. The second AI only words the result, and Check narration rejects it if a number, a currency or an indicator label does not match. Then the plain computed result is shown.
+- **How do you stop the AI inventing numbers?** Two layers. The first AI only returns JSON (which tool), and a Code node checks it; amounts must appear in the user's words. Tools compute everything with SQL, code or Python. The second AI only words the result, and Check reply numbers (fallback) rejects it if a number, a currency or an indicator label does not match. Then the plain computed result is shown.
 - **Why a local 7B model?** It's free, private (my finances never leave the laptop) and fast enough (5–15 s). The weakness: it guesses, so every guess got a code check.
 - **What makes it Level 3?** 4 sub-workflows, an Error Workflow on all 9 workflows, retries on every HTTP and DB node, failure branches, dedup on `event_id`, state in Postgres, confirmation before writes, stale-FX fallback.
 - **Why 9 workflows?** One per job, matching the brief's sub-workflow requirement: router, record, analyse, watchlist, answer, scan page, dashboard API, valuation refresh, error handler.

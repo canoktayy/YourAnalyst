@@ -45,11 +45,27 @@ Check that everything is up: `tests/demo_check.sh --chat` (every line must be �
 
 ### Screenshots
 
-| n8n: chat router | n8n: Error Workflow |
+| Dashboard with the assistant | Signal Lab |
 |---|---|
-| ![Chat router workflow](docs/screenshots/chat_router.png) | ![Error handler workflow](docs/screenshots/error_handler.png) |
-| **n8n: Analyse US stock (sub-workflow)** | **Signal Lab** |
-| ![Analyse US stock workflow](docs/screenshots/analyse_stock.png) | ![Signal Lab scan](docs/screenshots/signal_lab.png) |
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Signal Lab scan](docs/screenshots/signal_lab.png) |
+
+## The 9 workflows
+
+Numbered in the order a message flows. Every node name says what it does; its prefix says what kind of node it is: `Trigger:`, `DB:` (Postgres), `API:` (HTTP Request), `AI:` / `AI 1` / `AI 2` (LLM Chain), `LLM for …` (chat model), `Run sub:` (Execute Workflow), `Reply …` (Respond to Webhook); If nodes are questions ("Token valid?"); Switch nodes start with `Route`. Pictures are drawn from the JSON by `docs/tools/render_workflows.py` (red = error output).
+
+| Workflow | What it does |
+|---|---|
+| [YA 1 – Chat: understand and route a message](docs/workflows/chat_router.png) | Chat webhook → guards → AI 1 picks a tool → code checks it → Route by intent → sub-workflow → AI 2 words the reply → numbers checked |
+| [YA 2 – Sub: save a financial record](docs/workflows/record_entry.png) | Propose a record, wait for yes / no, save it, return the new net worth |
+| [YA 3 – Sub: analyse stocks with indicators](docs/workflows/analyse_stock.png) | One stock or a ranking via the Python API, AI explanation, failure branch |
+| [YA 4 – Sub: add or remove watchlist stocks](docs/workflows/watchlist.png) | Find tickers on Yahoo, keep only real ones, save |
+| [YA 5 – Sub: answer a question about my money](docs/workflows/answer_question.png) | SQL snapshot → code computes → AI words it → numbers checked |
+| [YA 6 – Signal Lab page: scan stocks](docs/workflows/signal_scan.png) | Signal Lab page webhook → YA 3 |
+| [YA 7 – Dashboard page: load and save data](docs/workflows/dashboard_api.png) | Dashboard read and form writes |
+| [YA 8 – Refresh prices and exchange rates](docs/workflows/valuation_refresh.png) | Every 10 s prices, every 30 min FX, manual run; stale-FX fallback |
+| [YA 9 – Error handler: log every failure](docs/workflows/error_handler.png) | Error Workflow of all others: alert with workflow, node and execution URL |
+
+![YA 1 – Chat router](docs/workflows/chat_router.png)
 
 ## Layout
 
@@ -58,8 +74,8 @@ Check that everything is up: `tests/demo_check.sh --chat` (every line must be �
 | `db/schema.sql` | Tables, valuation views (`v_position`, `v_line_item`, `v_net_worth`) |
 | `db/seed.sql` | Demo user, 20-stock universe, USD FX anchor |
 | `docker-compose.yml` | Self-hosted stack: Postgres (`:5433`), analysis API (`:8000`), n8n-init, n8n (`:5678`) |
-| `docs/` | Scoping PDF and README screenshots |
-| `workflows/` | n8n workflow JSON built from `workflows/src/*.py`; `workflows/deploy.sh` imports + publishes (mounted at `/workflows`). `YA – Error handler` is every workflow's Error Workflow |
+| `docs/` | Scoping PDF, screenshots, workflow pictures (`docs/workflows/`, drawn by `docs/tools/render_workflows.py`) |
+| `workflows/` | n8n workflow JSON built from `workflows/src/*.py`; `workflows/deploy.sh` imports + publishes (mounted at `/workflows`). `YA 9 – Error handler: log every failure` is every workflow's Error Workflow |
 | `web/` | Dashboard UI, copied from the author's existing BistRadar "Financial Dashboard" (personal data files excluded). `python3 web/server.py` → http://localhost:3500 |
 | `PLAN.md` | Course requirements → nodes, build order, demo script |
 | `tests/` | Saved webhook payloads + `send.sh` to resend them on demand |
@@ -70,7 +86,7 @@ Everything runs in Docker (self-hosted n8n, not n8n Cloud): `db` (Postgres), `an
 
 n8n UI: http://localhost:5678. On first visit, create the owner account (only needed to look at the workflows; they already run without it).
 
-Signal Lab (header tab) is the proposal's analysis screen: pick any of RSI, MACD, MA trend and volume ratio, then scan the fixed 20-stock universe or analyse one ticker. Path: `/ya/scan` → n8n `YA – Signal scan` → `YA – Analyse US stock` → `analysis/api.py`. The ML ranking, Monte Carlo, backtests and P&L tracking of the original BistRadar app were removed (proposal cut line).
+Signal Lab (header tab) is the proposal's analysis screen: pick any of RSI, MACD, MA trend and volume ratio, then scan the fixed 20-stock universe or analyse one ticker. Path: `/ya/scan` → n8n `YA 6 – Signal Lab page: scan stocks` → `YA 3 – Sub: analyse stocks with indicators` → `analysis/api.py`. The ML ranking, Monte Carlo, backtests and P&L tracking of the original BistRadar app were removed (proposal cut line).
 
 n8n Postgres credential (created by `n8n-init`): host `db`, port `5432`, database `youranalyst`, user/password from `.env`.
 
