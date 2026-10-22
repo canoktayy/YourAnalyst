@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Unit tests for the AI guard code (needs node): the wording check for stock indicators
-(workflows/src/lib.py) and the currency-aware number check of "YA – Answer question".
+(workflows/src/lib.py) and the currency-aware number check of "YA 5 – Sub: answer a question about my money".
 Cases are real wrong answers the 7B model gave during testing.
     python3 tests/test_checks.py
 """
@@ -31,7 +31,7 @@ WORDING = [
 ]
 
 answer_wf = json.loads((ROOT / "workflows" / "answer_question.json").read_text())
-CHECK_NUMBERS = next(n for n in answer_wf["nodes"] if n["name"] == "Check numbers")["parameters"]["jsCode"]
+CHECK_NUMBERS = next(n for n in answer_wf["nodes"] if n["name"] == "Check answer numbers (fallback)")["parameters"]["jsCode"]
 CTX = {"amounts": [[107065, "USD"], [95143.31, "EUR"], [29455, "USD"], [26175.19, "EUR"]],
        "llm_facts": {"quantity": 500}, "question": "How much is my NVDA position worth?",
        "mode": "question", "facts": {}, "block": "B"}

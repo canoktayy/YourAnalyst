@@ -1,4 +1,4 @@
-"""YA – Valuation refresh: quotes + FX rates into Postgres.
+"""YA 8 – Refresh prices and exchange rates: quotes + FX rates into Postgres.
 
 Triggers: Schedule (every 30 min), Manual (demo), and POST /ya-refresh (dashboard
 refresh button; answers 202 right away, the dashboard re-reads a few seconds later).
@@ -8,7 +8,7 @@ from lib import NOT_EMPTY, RETRY, auth, code, connect, if_node, node, respond, s
 VALIDATE_QUOTES = r"""// Turn Yahoo responses into quote rows.
 // A failed or implausible quote becomes price = null: the upsert then keeps the
 // last good price, which the dashboard shows as 'stale' (or 'unavailable' if none).
-const symbols = $('Tracked symbols').all();
+const symbols = $('DB: stocks to price').all();
 const now = Date.now();
 
 const rows = $input.all().map((item, i) => {
@@ -101,7 +101,7 @@ FX_FAILED = r"""const err = $json.error ?? {};
 const msg = String(err.message ?? err ?? 'FX request failed').slice(0, 1000);
 return [{ json: { log: {
   workflow_name: $workflow.name,
-  node_name: 'Fetch FX (Frankfurter)',
+  node_name: 'API: get FX rates (Frankfurter)',
   execution_id: String($execution.id),
   event_id: null,
   message: `FX fetch failed after retries, kept last rates (stale after 3 days): ${msg}`,
@@ -118,21 +118,21 @@ ROWS = "={{ JSON.stringify($json.rows) }}"
 nodes = [
     # Quotes every 10 s (portfolio + watchlist only, a handful of symbols); FX rates are
     # daily ECB figures, so every 30 min is plenty.
-    node("Every 10 s (quotes)", "n8n-nodes-base.scheduleTrigger", 1.2, [0, -120],
+    node("Trigger: every 10 s (prices)", "n8n-nodes-base.scheduleTrigger", 1.2, [0, -120],
          {"rule": {"interval": [{"field": "seconds", "secondsInterval": 10}]}}),
-    node("Every 30 min (FX)", "n8n-nodes-base.scheduleTrigger", 1.2, [0, 360],
+    node("Trigger: every 30 min (FX)", "n8n-nodes-base.scheduleTrigger", 1.2, [0, 360],
          {"rule": {"interval": [{"field": "minutes", "minutesInterval": 30}]}}),
-    node("Run now (manual)", "n8n-nodes-base.manualTrigger", 1, [0, 220], {}),
-    webhook("POST /ya-refresh", [-660, 560], "POST", "ya-refresh"),
-    auth("Auth user", [-440, 560]),
-    if_node("If: authenticated?", [-220, 560], "={{ $json.user_id }}", NOT_EMPTY),
-    respond("Respond 401", [0, 700], '={{ { "ok": false, "error": "Missing or invalid X-YA-Token" } }}', 401),
-    respond("Respond 202", [0, 440], '={{ { "ok": true, "status": "refresh started" } }}', 202),
+    node("Trigger: run manually", "n8n-nodes-base.manualTrigger", 1, [0, 220], {}),
+    webhook("Trigger: refresh now (POST /ya-refresh)", [-660, 560], "POST", "ya-refresh"),
+    auth("DB: find user by token", [-440, 560]),
+    if_node("Token valid?", [-220, 560], "={{ $json.user_id }}", NOT_EMPTY),
+    respond("Reply 401: invalid token", [0, 780], '={{ { "ok": false, "error": "Missing or invalid X-YA-Token" } }}', 401),
+    respond("Reply 202: refresh started", [0, 560], '={{ { "ok": true, "status": "refresh started" } }}', 202),
 
-    sql("Tracked symbols", [260, -100],
+    sql("DB: stocks to price", [260, -100],
         "-- What the dashboard shows. Scan universes are priced by the analysis API.\n"
         "select symbol from holding\nunion\nselect symbol from watchlist\norder by 1;"),
-    node("Fetch quote (Yahoo)", "n8n-nodes-base.httpRequest", 4.2, [500, -100],
+    node("API: get price (Yahoo)", "n8n-nodes-base.httpRequest", 4.2, [500, -100],
          {"url": "=https://query1.finance.yahoo.com/v8/finance/chart/{{ encodeURIComponent($json.symbol) }}",
           "sendQuery": True,
           "queryParameters": {"parameters": [{"name": "range", "value": "1d"},
@@ -142,43 +142,43 @@ nodes = [
           "options": {"batching": {"batch": {"batchSize": 5, "batchInterval": 500}},
                       "timeout": 10000}},
          onError="continueRegularOutput", **RETRY),
-    code("Validate quotes", [740, -100], VALIDATE_QUOTES),
-    sql("Upsert quotes", [980, -100], UPSERT_QUOTES, ROWS),
+    code("Keep only valid prices", [740, -100], VALIDATE_QUOTES),
+    sql("DB: save prices", [980, -100], UPSERT_QUOTES, ROWS),
 
-    sql("Tracked currencies", [260, 320],
+    sql("DB: currencies to convert", [260, 320],
         "-- Currencies in use, plus common ones so the dashboard can always convert them.\n"
         "select currency from asset\nunion select currency from liability\n"
         "union select cost_currency from holding\nunion select base_currency from app_user\n"
         "union select unnest(array['EUR', 'TRY', 'GBP']);"),
     code("Build FX request", [500, 320], BUILD_FX),
-    node("Fetch FX (Frankfurter)", "n8n-nodes-base.httpRequest", 4.2, [740, 320],
+    node("API: get FX rates (Frankfurter)", "n8n-nodes-base.httpRequest", 4.2, [740, 320],
          {"url": "https://api.frankfurter.dev/v1/latest",
           "sendQuery": True,
           "queryParameters": {"parameters": [{"name": "base", "value": "USD"},
                                              {"name": "symbols", "value": "={{ $json.symbols }}"}]},
           "options": {"timeout": 10000}},
          onError="continueErrorOutput", **RETRY),
-    code("Validate FX", [980, 320], VALIDATE_FX),
+    code("Keep only valid FX rates", [980, 320], VALIDATE_FX),
     code("FX failed: keep last rates", [980, 520], FX_FAILED),
-    sql("Log FX failure", [1220, 520], LOG_FX_FAILURE, "={{ JSON.stringify($json.log) }}"),
-    sql("Upsert FX rates", [1220, 320], UPSERT_FX, ROWS),
+    sql("DB: log FX failure", [1220, 520], LOG_FX_FAILURE, "={{ JSON.stringify($json.log) }}"),
+    sql("DB: save FX rates", [1220, 320], UPSERT_FX, ROWS),
 ]
 
 connections = connect(
-    ("Every 10 s (quotes)", "Tracked symbols"), ("Every 30 min (FX)", "Tracked currencies"),
-    ("Run now (manual)", "Tracked symbols"), ("Run now (manual)", "Tracked currencies"),
-    ("POST /ya-refresh", "Auth user"), ("Auth user", "If: authenticated?"),
-    ("If: authenticated?", "Respond 202", 0), ("If: authenticated?", "Respond 401", 1),
-    ("Respond 202", "Tracked symbols"), ("Respond 202", "Tracked currencies"),
-    ("Tracked symbols", "Fetch quote (Yahoo)"),
-    ("Fetch quote (Yahoo)", "Validate quotes"),
-    ("Validate quotes", "Upsert quotes"),
-    ("Tracked currencies", "Build FX request"),
-    ("Build FX request", "Fetch FX (Frankfurter)"),
-    ("Fetch FX (Frankfurter)", "Validate FX", 0),
-    ("Fetch FX (Frankfurter)", "FX failed: keep last rates", 1),
-    ("FX failed: keep last rates", "Log FX failure"),
-    ("Validate FX", "Upsert FX rates"),
+    ("Trigger: every 10 s (prices)", "DB: stocks to price"), ("Trigger: every 30 min (FX)", "DB: currencies to convert"),
+    ("Trigger: run manually", "DB: stocks to price"), ("Trigger: run manually", "DB: currencies to convert"),
+    ("Trigger: refresh now (POST /ya-refresh)", "DB: find user by token"), ("DB: find user by token", "Token valid?"),
+    ("Token valid?", "Reply 202: refresh started", 0), ("Token valid?", "Reply 401: invalid token", 1),
+    ("Reply 202: refresh started", "DB: stocks to price"), ("Reply 202: refresh started", "DB: currencies to convert"),
+    ("DB: stocks to price", "API: get price (Yahoo)"),
+    ("API: get price (Yahoo)", "Keep only valid prices"),
+    ("Keep only valid prices", "DB: save prices"),
+    ("DB: currencies to convert", "Build FX request"),
+    ("Build FX request", "API: get FX rates (Frankfurter)"),
+    ("API: get FX rates (Frankfurter)", "Keep only valid FX rates", 0),
+    ("API: get FX rates (Frankfurter)", "FX failed: keep last rates", 1),
+    ("FX failed: keep last rates", "DB: log FX failure"),
+    ("Keep only valid FX rates", "DB: save FX rates"),
 )
 
-write("valuation_refresh", "YAvaluationRfrsh", "YA – Valuation refresh", nodes, connections)
+write("valuation_refresh", "YAvaluationRfrsh", "YA 8 – Refresh prices and exchange rates", nodes, connections)

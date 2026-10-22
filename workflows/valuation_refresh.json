@@ -1,6 +1,6 @@
 {
   "id": "YAvaluationRfrsh",
-  "name": "YA – Valuation refresh",
+  "name": "YA 8 – Refresh prices and exchange rates",
   "active": false,
   "nodes": [
     {
@@ -14,8 +14,8 @@
           ]
         }
       },
-      "name": "Every 10 s (quotes)",
-      "id": "7ca18404-fa57-5573-aed6-f346a32066e5",
+      "name": "Trigger: every 10 s (prices)",
+      "id": "e6036388-b193-517e-8a53-468bdc4507be",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
@@ -34,8 +34,8 @@
           ]
         }
       },
-      "name": "Every 30 min (FX)",
-      "id": "38ffbf1c-4119-51fe-b247-35a959f7a20d",
+      "name": "Trigger: every 30 min (FX)",
+      "id": "4628fc95-490d-58d6-93bd-efdc5feba7fa",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
@@ -45,8 +45,8 @@
     },
     {
       "parameters": {},
-      "name": "Run now (manual)",
-      "id": "edc483fd-ca7d-549e-85d0-53e369e072a4",
+      "name": "Trigger: run manually",
+      "id": "ec7d4a0b-2be1-5631-8f6f-eea852915bad",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
@@ -61,8 +61,8 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "name": "POST /ya-refresh",
-      "id": "f6f9558d-b639-5be2-90b7-bcae51eff5f3",
+      "name": "Trigger: refresh now (POST /ya-refresh)",
+      "id": "af1b4a7f-3fca-5933-9ab0-b3fe52fb2a88",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
@@ -79,8 +79,8 @@
           "queryReplacement": "={{ JSON.stringify({ token: $json.headers['x-ya-token'] ?? null }) }}"
         }
       },
-      "name": "Auth user",
-      "id": "e0c550a7-cdd1-5317-8c50-e29df19599e6",
+      "name": "DB: find user by token",
+      "id": "8a70da64-fab9-5f55-9c2f-fddaaa5122a3",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -108,7 +108,7 @@
           },
           "conditions": [
             {
-              "id": "b6f8af9c-089b-5536-a357-ab7ff76e7f5e",
+              "id": "5961c8f7-8460-517a-8c4c-cb016f0b9826",
               "leftValue": "={{ $json.user_id }}",
               "operator": {
                 "type": "string",
@@ -122,8 +122,8 @@
         "looseTypeValidation": true,
         "options": {}
       },
-      "name": "If: authenticated?",
-      "id": "52fac36f-f7f2-544c-bd63-bc0e451b996a",
+      "name": "Token valid?",
+      "id": "c49249d2-c87e-596e-85f0-34ea1a5c707f",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
@@ -139,13 +139,13 @@
           "responseCode": 401
         }
       },
-      "name": "Respond 401",
-      "id": "ba6a1ea3-fe90-5398-93f7-0e1b80b197fd",
+      "name": "Reply 401: invalid token",
+      "id": "1737bbe5-f5f8-59a8-b59d-0cfdab760782",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
         0,
-        700
+        780
       ]
     },
     {
@@ -156,13 +156,13 @@
           "responseCode": 202
         }
       },
-      "name": "Respond 202",
-      "id": "91834cd8-e997-5c04-87ee-c556a9c68eb6",
+      "name": "Reply 202: refresh started",
+      "id": "b13bd801-94ea-508c-aa4e-2000405eaa0a",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
         0,
-        440
+        560
       ]
     },
     {
@@ -171,8 +171,8 @@
         "query": "-- What the dashboard shows. Scan universes are priced by the analysis API.\nselect symbol from holding\nunion\nselect symbol from watchlist\norder by 1;",
         "options": {}
       },
-      "name": "Tracked symbols",
-      "id": "29a95511-98b2-5704-a34e-6149f9836a2a",
+      "name": "DB: stocks to price",
+      "id": "509f8340-6145-5aff-a124-19a058f8800f",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -224,8 +224,8 @@
           "timeout": 10000
         }
       },
-      "name": "Fetch quote (Yahoo)",
-      "id": "cd323d8a-8cab-5e05-a79d-3574e2cfc1ef",
+      "name": "API: get price (Yahoo)",
+      "id": "2b2cc22e-5e42-5614-8a26-fa49dad4f904",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -239,10 +239,10 @@
     },
     {
       "parameters": {
-        "jsCode": "// Turn Yahoo responses into quote rows.\n// A failed or implausible quote becomes price = null: the upsert then keeps the\n// last good price, which the dashboard shows as 'stale' (or 'unavailable' if none).\nconst symbols = $('Tracked symbols').all();\nconst now = Date.now();\n\nconst rows = $input.all().map((item, i) => {\n  const symbol = symbols[item.pairedItem?.item ?? i].json.symbol;\n  const meta = item.json?.chart?.result?.[0]?.meta;\n  const price = Number(meta?.regularMarketPrice);\n  const ts = Number(meta?.regularMarketTime) * 1000;\n  const ok = !!meta\n    && String(meta.symbol).toUpperCase() === symbol.toUpperCase()\n    && Number.isFinite(price) && price > 0\n    && /^[A-Z]{3}$/.test(meta.currency ?? '')\n    && Number.isFinite(ts) && ts <= now + 5 * 60 * 1000;\n  const prev = Number(meta?.chartPreviousClose ?? meta?.previousClose);\n  const err = item.json?.error;\n  return {\n    symbol,\n    price: ok ? price : null,\n    change_pct: ok && prev > 0 ? Math.round((price / prev - 1) * 1e6) / 1e4 : null,\n    currency: ok ? meta.currency : 'USD',\n    as_of: ok ? new Date(ts).toISOString() : null,\n    source: 'yahoo',\n    error: ok ? null : String(err?.message ?? err ?? 'invalid quote payload'),\n  };\n});\n\nconst failed = rows.filter(r => r.price === null);\nreturn [{ json: {\n  rows,\n  ok_count: rows.length - failed.length,\n  failed: failed.map(r => `${r.symbol}: ${r.error}`),\n} }];\n"
+        "jsCode": "// Turn Yahoo responses into quote rows.\n// A failed or implausible quote becomes price = null: the upsert then keeps the\n// last good price, which the dashboard shows as 'stale' (or 'unavailable' if none).\nconst symbols = $('DB: stocks to price').all();\nconst now = Date.now();\n\nconst rows = $input.all().map((item, i) => {\n  const symbol = symbols[item.pairedItem?.item ?? i].json.symbol;\n  const meta = item.json?.chart?.result?.[0]?.meta;\n  const price = Number(meta?.regularMarketPrice);\n  const ts = Number(meta?.regularMarketTime) * 1000;\n  const ok = !!meta\n    && String(meta.symbol).toUpperCase() === symbol.toUpperCase()\n    && Number.isFinite(price) && price > 0\n    && /^[A-Z]{3}$/.test(meta.currency ?? '')\n    && Number.isFinite(ts) && ts <= now + 5 * 60 * 1000;\n  const prev = Number(meta?.chartPreviousClose ?? meta?.previousClose);\n  const err = item.json?.error;\n  return {\n    symbol,\n    price: ok ? price : null,\n    change_pct: ok && prev > 0 ? Math.round((price / prev - 1) * 1e6) / 1e4 : null,\n    currency: ok ? meta.currency : 'USD',\n    as_of: ok ? new Date(ts).toISOString() : null,\n    source: 'yahoo',\n    error: ok ? null : String(err?.message ?? err ?? 'invalid quote payload'),\n  };\n});\n\nconst failed = rows.filter(r => r.price === null);\nreturn [{ json: {\n  rows,\n  ok_count: rows.length - failed.length,\n  failed: failed.map(r => `${r.symbol}: ${r.error}`),\n} }];\n"
       },
-      "name": "Validate quotes",
-      "id": "13ec1d1a-2ed9-553d-82ac-9324b0de5621",
+      "name": "Keep only valid prices",
+      "id": "94a26e32-caad-5273-a9a4-79fa2385d550",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -258,8 +258,8 @@
           "queryReplacement": "={{ JSON.stringify($json.rows) }}"
         }
       },
-      "name": "Upsert quotes",
-      "id": "615e7e6a-60ab-5c1a-96d3-cad696cd6a45",
+      "name": "DB: save prices",
+      "id": "4fa04af4-fbbe-5e46-969a-c4efb29d590f",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -282,8 +282,8 @@
         "query": "-- Currencies in use, plus common ones so the dashboard can always convert them.\nselect currency from asset\nunion select currency from liability\nunion select cost_currency from holding\nunion select base_currency from app_user\nunion select unnest(array['EUR', 'TRY', 'GBP']);",
         "options": {}
       },
-      "name": "Tracked currencies",
-      "id": "eb2a3978-2354-5a61-9651-8652b4c9ca41",
+      "name": "DB: currencies to convert",
+      "id": "60d2e791-b0cb-57be-9148-0d3c1f587547",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -333,8 +333,8 @@
           "timeout": 10000
         }
       },
-      "name": "Fetch FX (Frankfurter)",
-      "id": "55275cfa-4905-53d1-a0bf-c61eafc93bde",
+      "name": "API: get FX rates (Frankfurter)",
+      "id": "cce5a3ec-ad13-5554-96ef-0cff7cb17996",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -350,8 +350,8 @@
       "parameters": {
         "jsCode": "// Frankfurter returns units per 1 USD; the DB stores USD per 1 unit.\nconst res = $input.first().json;\nconst wanted = $('Build FX request').first().json.currencies;\n\nif (res.base !== 'USD') throw new Error(`Unexpected FX base: ${res.base}`);\nif (!/^\\d{4}-\\d{2}-\\d{2}$/.test(res.date ?? '')) throw new Error(`Missing FX date: ${res.date}`);\n\nconst rates = res.rates ?? {};\nconst valid = c => Number.isFinite(Number(rates[c])) && Number(rates[c]) > 0;\n\nreturn [{ json: {\n  rows: wanted.filter(valid).map(c => ({\n    currency: c,\n    usd_per_unit: 1 / Number(rates[c]),\n    as_of: `${res.date}T00:00:00Z`,\n    source: 'frankfurter (ECB)',\n  })),\n  missing: wanted.filter(c => !valid(c)),\n} }];\n"
       },
-      "name": "Validate FX",
-      "id": "516f7ae3-e513-55e0-944e-cf752072201f",
+      "name": "Keep only valid FX rates",
+      "id": "dd3a7fc1-15d1-554a-a087-323f25d73c25",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -361,7 +361,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const err = $json.error ?? {};\nconst msg = String(err.message ?? err ?? 'FX request failed').slice(0, 1000);\nreturn [{ json: { log: {\n  workflow_name: $workflow.name,\n  node_name: 'Fetch FX (Frankfurter)',\n  execution_id: String($execution.id),\n  event_id: null,\n  message: `FX fetch failed after retries, kept last rates (stale after 3 days): ${msg}`,\n} } }];\n"
+        "jsCode": "const err = $json.error ?? {};\nconst msg = String(err.message ?? err ?? 'FX request failed').slice(0, 1000);\nreturn [{ json: { log: {\n  workflow_name: $workflow.name,\n  node_name: 'API: get FX rates (Frankfurter)',\n  execution_id: String($execution.id),\n  event_id: null,\n  message: `FX fetch failed after retries, kept last rates (stale after 3 days): ${msg}`,\n} } }];\n"
       },
       "name": "FX failed: keep last rates",
       "id": "86b4ca61-ff34-525d-8bbe-aad36ea97617",
@@ -380,8 +380,8 @@
           "queryReplacement": "={{ JSON.stringify($json.log) }}"
         }
       },
-      "name": "Log FX failure",
-      "id": "50f681f4-6922-584c-a9c7-84315aa52b8c",
+      "name": "DB: log FX failure",
+      "id": "8f983c44-63b5-51b5-a64d-abc40ecbbc82",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -406,8 +406,8 @@
           "queryReplacement": "={{ JSON.stringify($json.rows) }}"
         }
       },
-      "name": "Upsert FX rates",
-      "id": "1d45bb13-c6c8-5b63-9c29-3ad5a2ffd27e",
+      "name": "DB: save FX rates",
+      "id": "41b64ecb-292a-5c25-b620-aaa2cba5cc51",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -426,134 +426,134 @@
     }
   ],
   "connections": {
-    "Every 10 s (quotes)": {
+    "Trigger: every 10 s (prices)": {
       "main": [
         [
           {
-            "node": "Tracked symbols",
+            "node": "DB: stocks to price",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Every 30 min (FX)": {
+    "Trigger: every 30 min (FX)": {
       "main": [
         [
           {
-            "node": "Tracked currencies",
+            "node": "DB: currencies to convert",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Run now (manual)": {
+    "Trigger: run manually": {
       "main": [
         [
           {
-            "node": "Tracked symbols",
+            "node": "DB: stocks to price",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Tracked currencies",
+            "node": "DB: currencies to convert",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "POST /ya-refresh": {
+    "Trigger: refresh now (POST /ya-refresh)": {
       "main": [
         [
           {
-            "node": "Auth user",
+            "node": "DB: find user by token",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Auth user": {
+    "DB: find user by token": {
       "main": [
         [
           {
-            "node": "If: authenticated?",
+            "node": "Token valid?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "If: authenticated?": {
+    "Token valid?": {
       "main": [
         [
           {
-            "node": "Respond 202",
+            "node": "Reply 202: refresh started",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Respond 401",
+            "node": "Reply 401: invalid token",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Respond 202": {
+    "Reply 202: refresh started": {
       "main": [
         [
           {
-            "node": "Tracked symbols",
+            "node": "DB: stocks to price",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Tracked currencies",
+            "node": "DB: currencies to convert",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Tracked symbols": {
+    "DB: stocks to price": {
       "main": [
         [
           {
-            "node": "Fetch quote (Yahoo)",
+            "node": "API: get price (Yahoo)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Fetch quote (Yahoo)": {
+    "API: get price (Yahoo)": {
       "main": [
         [
           {
-            "node": "Validate quotes",
+            "node": "Keep only valid prices",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Validate quotes": {
+    "Keep only valid prices": {
       "main": [
         [
           {
-            "node": "Upsert quotes",
+            "node": "DB: save prices",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Tracked currencies": {
+    "DB: currencies to convert": {
       "main": [
         [
           {
@@ -568,18 +568,18 @@
       "main": [
         [
           {
-            "node": "Fetch FX (Frankfurter)",
+            "node": "API: get FX rates (Frankfurter)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Fetch FX (Frankfurter)": {
+    "API: get FX rates (Frankfurter)": {
       "main": [
         [
           {
-            "node": "Validate FX",
+            "node": "Keep only valid FX rates",
             "type": "main",
             "index": 0
           }
@@ -597,18 +597,18 @@
       "main": [
         [
           {
-            "node": "Log FX failure",
+            "node": "DB: log FX failure",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Validate FX": {
+    "Keep only valid FX rates": {
       "main": [
         [
           {
-            "node": "Upsert FX rates",
+            "node": "DB: save FX rates",
             "type": "main",
             "index": 0
           }

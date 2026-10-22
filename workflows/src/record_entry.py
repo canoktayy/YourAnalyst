@@ -1,4 +1,4 @@
-"""YA – Record financial entry (sub-workflow).
+"""YA 2 – Sub: save a financial record (sub-workflow).
 
 Input item: {mode: propose|confirm|cancel, user_id, request_id, event_id, record?}
 Output item: {reply, status: awaiting_confirmation|done, intent, data}
@@ -10,7 +10,7 @@ cancel   -> mark the pending row cancelled
 """
 from lib import code, connect, sql, sub_trigger, switch, write
 
-START = "$('Start').first().json"
+START = "$('Input from chat router').first().json"
 FMT = r"""
 const money = (n, c) => new Intl.NumberFormat('en-US',
   { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n)) + ' ' + c;
@@ -101,7 +101,7 @@ return [{ json: {
 """
 
 SAVED_REPLY = FMT + r"""
-const saved = $('Confirm and save').first().json;
+const saved = $('DB: save confirmed record').first().json;
 if (!saved.record_id) {
   return [{ json: { intent: 'confirm', status: 'done', data: null,
     reply: 'There is nothing waiting for confirmation; it may have expired (15 min). Please send the record again.' } }];
@@ -134,36 +134,36 @@ return [{ json: { intent: 'cancel', status: 'done', data: { cancelled: n },
 J = "={{ JSON.stringify(" + START + ") }}"
 
 nodes = [
-    sub_trigger("Start", [0, 200], "YArecordEntry001"),
-    switch("Switch: mode", [220, 200], "={{ $json.mode }}",
+    sub_trigger("Input from chat router", [0, 200], "YArecordEntry001"),
+    switch("Route: propose / confirm / cancel", [220, 200], "={{ $json.mode }}",
            [("propose", "propose"), ("confirm", "confirm"), ("cancel", "cancel")]),
     # One open confirmation per user: a new proposal replaces the previous one.
-    sql("Cancel open confirmation", [460, 0],
+    sql("DB: drop older pending record", [460, 0],
         "update pending_confirmation set status = 'cancelled', resolved_at = now()\n"
         "where user_id = ($1::jsonb->>'user_id')::uuid and status = 'pending';", J,
         alwaysOutputData=True, executeOnce=True),
-    sql("Create confirmation", [680, 0], CREATE_CONFIRMATION, J),
-    code("Confirmation question", [900, 0], CONFIRMATION_QUESTION),
+    sql("DB: store record awaiting yes", [680, 0], CREATE_CONFIRMATION, J),
+    code("Reply: ask yes or no", [900, 0], CONFIRMATION_QUESTION),
 
-    sql("Confirm and save", [460, 200], CONFIRM_AND_SAVE, J),
-    sql("Load totals", [680, 200], LOAD_TOTALS,
+    sql("DB: save confirmed record", [460, 200], CONFIRM_AND_SAVE, J),
+    sql("DB: load new net worth", [680, 200], LOAD_TOTALS,
         "={{ JSON.stringify({ user_id: " + START + ".user_id, record_id: $json.record_id }) }}"),
-    code("Saved reply", [900, 200], SAVED_REPLY),
+    code("Reply: saved + new totals", [900, 200], SAVED_REPLY),
 
-    sql("Cancel confirmation", [460, 400], CANCEL, J),
-    code("Cancelled reply", [680, 400], CANCELLED_REPLY),
+    sql("DB: cancel pending record", [460, 400], CANCEL, J),
+    code("Reply: cancelled", [680, 400], CANCELLED_REPLY),
 ]
 
 connections = connect(
-    ("Start", "Switch: mode"),
-    ("Switch: mode", "Cancel open confirmation", 0),
-    ("Switch: mode", "Confirm and save", 1),
-    ("Switch: mode", "Cancel confirmation", 2),
-    ("Cancel open confirmation", "Create confirmation"),
-    ("Create confirmation", "Confirmation question"),
-    ("Confirm and save", "Load totals"),
-    ("Load totals", "Saved reply"),
-    ("Cancel confirmation", "Cancelled reply"),
+    ("Input from chat router", "Route: propose / confirm / cancel"),
+    ("Route: propose / confirm / cancel", "DB: drop older pending record", 0),
+    ("Route: propose / confirm / cancel", "DB: save confirmed record", 1),
+    ("Route: propose / confirm / cancel", "DB: cancel pending record", 2),
+    ("DB: drop older pending record", "DB: store record awaiting yes"),
+    ("DB: store record awaiting yes", "Reply: ask yes or no"),
+    ("DB: save confirmed record", "DB: load new net worth"),
+    ("DB: load new net worth", "Reply: saved + new totals"),
+    ("DB: cancel pending record", "Reply: cancelled"),
 )
 
-write("record_entry", "YArecordEntry001", "YA – Record financial entry", nodes, connections)
+write("record_entry", "YArecordEntry001", "YA 2 – Sub: save a financial record", nodes, connections)

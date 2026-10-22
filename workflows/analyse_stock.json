@@ -1,6 +1,6 @@
 {
   "id": "YAanalyseStock01",
-  "name": "YA – Analyse US stock",
+  "name": "YA 3 – Sub: analyse stocks with indicators",
   "active": false,
   "nodes": [
     {
@@ -31,8 +31,8 @@
           ]
         }
       },
-      "name": "Start",
-      "id": "7dd09f10-3088-5f9b-9278-d26abd931e27",
+      "name": "Input: one stock or a ranking",
+      "id": "2cd96af7-e30a-5b3a-9fb4-8be276d88e09",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
       "position": [
@@ -53,7 +53,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "10580236-a73f-5fa0-9766-b951d3b33d71",
+                    "id": "cb24ae09-9d18-5d5a-8610-583b59e5462f",
                     "leftValue": "={{ $json.mode }}",
                     "rightValue": "single",
                     "operator": {
@@ -76,7 +76,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "92eb7baa-c889-5df0-ad5e-1f9951ae9601",
+                    "id": "1fd0aa13-2836-5df2-9e18-2d963e4af4fe",
                     "leftValue": "={{ $json.mode }}",
                     "rightValue": "rank",
                     "operator": {
@@ -96,8 +96,8 @@
           "fallbackOutput": "extra"
         }
       },
-      "name": "Switch: mode",
-      "id": "5285bc8a-0039-568e-ae02-17abcc29c658",
+      "name": "Route: one stock or ranking",
+      "id": "e70ae0d5-20f2-507f-85a2-e59cac92f509",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
@@ -116,8 +116,8 @@
           "timeout": 60000
         }
       },
-      "name": "Analyse API",
-      "id": "289cbe56-3210-57b0-bce2-bd1243708a29",
+      "name": "API: analyse one stock",
+      "id": "85a202ef-c0b6-50e6-b1ba-42cbaa9eabb3",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -137,8 +137,8 @@
           "queryReplacement": "={{ JSON.stringify({ universe: $json.analysis.universe ?? 'demo' }) }}"
         }
       },
-      "name": "Universe",
-      "id": "8772cf64-8e62-5ccb-b88b-3f1f03f22ebb",
+      "name": "DB: stocks in chosen universe",
+      "id": "16b2a9b8-4a4e-5df2-b2bd-d5673e59de56",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -161,13 +161,13 @@
         "url": "http://analysis:8000/rank",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ symbols: $json.symbols, indicators: $('Start').first().json.analysis.indicators, top: $('Start').first().json.analysis.top }) }}",
+        "jsonBody": "={{ JSON.stringify({ symbols: $json.symbols, indicators: $('Input: one stock or a ranking').first().json.analysis.indicators, top: $('Input: one stock or a ranking').first().json.analysis.top }) }}",
         "options": {
           "timeout": 900000
         }
       },
-      "name": "Rank API",
-      "id": "50668df0-5f72-5a50-9b99-c8093423c3d9",
+      "name": "API: score and rank stocks",
+      "id": "1bbc8972-9ceb-5367-994d-1f1d30bb47c1",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -181,10 +181,10 @@
     },
     {
       "parameters": {
-        "jsCode": "const RULE_LABELS = {\n  rsi:      { 1: 'RSI oversold (below 30)', 0.5: 'RSI below 50', 0: 'RSI 50-70', '-1': 'RSI overbought (above 70)' },\n  macd:     { 1: 'MACD positive and rising', 0.5: 'MACD positive but fading', 0: 'MACD negative but improving', '-1': 'MACD negative and falling' },\n  ma_trend: { 1: 'uptrend', 0.5: 'above SMA200 only', 0: 'no clear trend', '-1': 'downtrend' },\n  volume:   { 1: 'heavy volume on an up day', 0: 'normal volume', '-1': 'heavy volume on a down day' },\n};\n// Compact, numbers-only facts for the LLM and the reply (no raw API noise).\nconst ctx = $('Start').first().json;\nconst r = $json;\nconst ind = i => Object.fromEntries(Object.entries(i).map(([k, v]) =>\n  [k, v.available ? { value: v.value, contribution: v.contribution, label: RULE_LABELS[k]?.[String(v.contribution)] ?? v.reason,\n                      reason: v.reason, rule: v.rule }\n                  : { available: false, reason: v.reason }]));\nconst facts = ctx.mode === 'rank'\n  ? { type: 'rank', universe: ctx.analysis.universe ?? 'demo', universe_name: ({ demo: 'Demo 20', dow30: 'Dow 30', nasdaq100: 'Nasdaq 100', sp500: 'S&P 500', nyse: 'NYSE (all listed common stocks)' })[ctx.analysis.universe ?? 'demo'],\n      universe_size: r.universe_size, indicators: r.indicators, data_as_of: r.data_as_of,\n      note: r.note, failed: r.failed,\n      ranked: r.ranked.map((x, i) => ({ rank: i + 1, symbol: x.symbol, name: x.name, score: x.score,\n        last_price: x.last_price, currency: x.currency,\n        contributions: Object.fromEntries(Object.entries(x.indicators).map(([k, v]) => [k, v.available ? v.contribution : null])),\n        values: Object.fromEntries(Object.entries(x.indicators).map(([k, v]) => [k, v.available ? v.value : null])),\n        reasons: Object.fromEntries(Object.entries(x.indicators).map(([k, v]) => [k, v.reason])),\n        labels: Object.fromEntries(Object.entries(x.indicators).map(([k, v]) =>\n          [k, v.available ? (RULE_LABELS[k]?.[String(v.contribution)] ?? v.reason) : 'not available'])) })) }\n  : { type: 'single', symbol: r.symbol, name: r.name, last_price: r.last_price, currency: r.currency,\n      data_as_of: r.data_as_of, source: r.source, score: r.score, score_rule: r.score_rule, indicators: ind(r.indicators) };\n// The LLM explains the top 5 only (a full 20-row table would make the prompt long and slow);\n// the reply/table still carries every ranked row.\nconst llm_facts = facts.type === 'rank'\n  ? { ...facts, ranked: facts.ranked.slice(0, 5).map(({ values, last_price, currency, reasons, ...x }) => x) }\n  // single: without the rule texts (\"...>70 overbought -1\"), whose words the 7B model copied\n  : { ...facts, indicators: Object.fromEntries(Object.entries(facts.indicators).map(([k, { rule, ...v }]) => [k, v])) };\nreturn [{ json: { ...ctx, facts, llm_facts } }];\n"
+        "jsCode": "const RULE_LABELS = {\n  rsi:      { 1: 'RSI oversold (below 30)', 0.5: 'RSI below 50', 0: 'RSI 50-70', '-1': 'RSI overbought (above 70)' },\n  macd:     { 1: 'MACD positive and rising', 0.5: 'MACD positive but fading', 0: 'MACD negative but improving', '-1': 'MACD negative and falling' },\n  ma_trend: { 1: 'uptrend', 0.5: 'above SMA200 only', 0: 'no clear trend', '-1': 'downtrend' },\n  volume:   { 1: 'heavy volume on an up day', 0: 'normal volume', '-1': 'heavy volume on a down day' },\n};\n// Compact, numbers-only facts for the LLM and the reply (no raw API noise).\nconst ctx = $('Input: one stock or a ranking').first().json;\nconst r = $json;\nconst ind = i => Object.fromEntries(Object.entries(i).map(([k, v]) =>\n  [k, v.available ? { value: v.value, contribution: v.contribution, label: RULE_LABELS[k]?.[String(v.contribution)] ?? v.reason,\n                      reason: v.reason, rule: v.rule }\n                  : { available: false, reason: v.reason }]));\nconst facts = ctx.mode === 'rank'\n  ? { type: 'rank', universe: ctx.analysis.universe ?? 'demo', universe_name: ({ demo: 'Demo 20', dow30: 'Dow 30', nasdaq100: 'Nasdaq 100', sp500: 'S&P 500', nyse: 'NYSE (all listed common stocks)' })[ctx.analysis.universe ?? 'demo'],\n      universe_size: r.universe_size, indicators: r.indicators, data_as_of: r.data_as_of,\n      note: r.note, failed: r.failed,\n      ranked: r.ranked.map((x, i) => ({ rank: i + 1, symbol: x.symbol, name: x.name, score: x.score,\n        last_price: x.last_price, currency: x.currency,\n        contributions: Object.fromEntries(Object.entries(x.indicators).map(([k, v]) => [k, v.available ? v.contribution : null])),\n        values: Object.fromEntries(Object.entries(x.indicators).map(([k, v]) => [k, v.available ? v.value : null])),\n        reasons: Object.fromEntries(Object.entries(x.indicators).map(([k, v]) => [k, v.reason])),\n        labels: Object.fromEntries(Object.entries(x.indicators).map(([k, v]) =>\n          [k, v.available ? (RULE_LABELS[k]?.[String(v.contribution)] ?? v.reason) : 'not available'])) })) }\n  : { type: 'single', symbol: r.symbol, name: r.name, last_price: r.last_price, currency: r.currency,\n      data_as_of: r.data_as_of, source: r.source, score: r.score, score_rule: r.score_rule, indicators: ind(r.indicators) };\n// The LLM explains the top 5 only (a full 20-row table would make the prompt long and slow);\n// the reply/table still carries every ranked row.\nconst llm_facts = facts.type === 'rank'\n  ? { ...facts, ranked: facts.ranked.slice(0, 5).map(({ values, last_price, currency, reasons, ...x }) => x) }\n  // single: without the rule texts (\"...>70 overbought -1\"), whose words the 7B model copied\n  : { ...facts, indicators: Object.fromEntries(Object.entries(facts.indicators).map(([k, { rule, ...v }]) => [k, v])) };\nreturn [{ json: { ...ctx, facts, llm_facts } }];\n"
       },
-      "name": "Normalise result",
-      "id": "6da086e8-794d-5e75-9522-9330cfbdef2a",
+      "name": "Shape API result",
+      "id": "56dfa3b7-e24b-58b4-8889-c5b565e03f04",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -205,8 +205,8 @@
           ]
         }
       },
-      "name": "Explain results",
-      "id": "3d026698-bd9e-55e8-b36a-68f059118147",
+      "name": "AI: explain top results",
+      "id": "136d2ab3-43e3-56b5-8932-107f2eb86fdc",
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.7,
       "position": [
@@ -233,8 +233,8 @@
           "extraBody": "={{ $env.YA_LLM_EXTRA_BODY || '{}' }}"
         }
       },
-      "name": "Chat model (explain)",
-      "id": "a3d0da2c-3b38-599d-8a85-9a31d5c95631",
+      "name": "LLM for explanation",
+      "id": "23799be2-d8b6-58d7-a323-972c7a1f5f26",
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.2,
       "position": [
@@ -250,10 +250,10 @@
     },
     {
       "parameters": {
-        "jsCode": "function wordingProblems(text, ranked, single = false) {\n  const problems = [];\n  if (!text || !ranked?.length) return problems;\n  const esc = s => s.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');\n  const IND = /rsi|macd|trend|volume|sma|overbought|oversold/;\n  // \"not in a clear uptrend\", \"isn't oversold\": negated phrases say nothing about the stock.\n  const NEG = /\\b(not|no|never|isn['’]t|aren['’]t|without|lacks?)\\s+(yet\\s+)?(a\\s+|an\\s+|in\\s+a\\s+)?(clear\\s+|clean\\s+|strong\\s+|unusually\\s+)?(up-?trend|down-?trend|overbought|oversold|(heavy|high|strong)\\s+volume)/g;\n  const contradicts = (seg, c) => (seg = seg.replace(NEG, ' '),\n    (/\\bup-?trend/.test(seg) && c.ma_trend !== 1) ||\n    (/\\bdown-?trend/.test(seg) && c.ma_trend !== -1) ||\n    (/overbought/.test(seg) && c.rsi !== -1) ||\n    (/oversold/.test(seg) && c.rsi !== 1) ||\n    (/neutral to strong|50-70|50–70/.test(seg) && c.rsi !== 0) ||\n    (/rsi (over|above) 50/.test(seg) && c.rsi > 0) ||\n    (/rsi below 50|below neutral/.test(seg) && c.rsi <= 0) ||\n    (/(negative|falling|bearish)[^,;]{0,12}macd|macd[^,;]{0,25}(negative|falling|bearish)/.test(seg) && c.macd > 0) ||\n    (/(heavy|high|strong) volume/.test(seg) && !c.volume) ||\n    // a stock described by its indicators must not hide a negative one\n    (IND.test(seg) && ((c.rsi === -1 && !/overbought|above 70/.test(seg)) ||\n                       (c.macd === -1 && !/macd/.test(seg)) ||\n                       (c.ma_trend === -1 && !/downtrend/.test(seg)) ||\n                       (c.volume === -1 && !/down day/.test(seg)))));\n  // One analysed stock: the whole text is about it, symbol or not.\n  if (single) {\n    if (contradicts(text.toLowerCase(), ranked[0].contributions ?? {}))\n      problems.push(`${ranked[0].symbol}: wording does not match its indicators`);\n    return problems;\n  }\n  const units = text.split(/\\n+|(?<=[.!?])\\s+(?=[A-Z0-9])/);\n  for (const unit of units) {\n    const hits = ranked.map(x => ({ x, i: unit.search(new RegExp(`\\\\b${esc(x.symbol)}\\\\b`)) }))\n      .filter(h => h.i >= 0).sort((a, b) => a.i - b.i);\n    const segs = hits.map((h, j) => unit.slice(h.i, j + 1 < hits.length ? hits[j + 1].i : unit.length).toLowerCase());\n    for (let j = 0; j < hits.length; j++) {\n      // \"AMZN, JPM and MSFT ...\": a stock without its own words shares the next description\n      let k = j;\n      while (k < hits.length - 1 && !IND.test(segs[k])) k++;\n      const c = hits[j].x.contributions ?? {};\n      if (contradicts(segs[k], c)) problems.push(`${hits[j].x.symbol}: wording does not match its indicators`);\n    }\n  }\n  return [...new Set(problems)];\n}\nconst ctx = $('Normalise result').first().json;\nconst f = ctx.facts;\nconst n = (v, d = 2) => v == null ? '—' : new Intl.NumberFormat('en-US',\n  { minimumFractionDigits: d, maximumFractionDigits: d }).format(v);\nconst when = iso => new Date(iso).toISOString().slice(0, 16).replace('T', ' ') + ' UTC';\nconst sign = c => (c > 0 ? '+' : '') + c;\nconst LABEL = { rsi: 'RSI-14', macd: 'MACD', ma_trend: 'Trend (SMA50/200)', volume: 'Volume' };\nconst valueText = (k, v) => ({\n  rsi: () => n(v.rsi_14),\n  macd: () => `hist ${n(v.histogram, 4)} (${'prev'} ${n(v.histogram_prev, 4)})`,\n  ma_trend: () => `${n(v.close)} / ${n(v.sma50)} / ${n(v.sma200)}`,\n  volume: () => `${n(v.ratio)}× ${'20d avg'}`,\n}[k] ?? (() => JSON.stringify(v)))();\n\nconst lines = [];\nif (f.type === 'single') {\n  lines.push(`${f.symbol}${f.name ? ` (${f.name})` : ''} · ${'Last price'} ${n(f.last_price)} ${f.currency} · ${'data'}: ${when(f.data_as_of)}`);\n  for (const [k, v] of Object.entries(f.indicators)) {\n    lines.push(v.available === false\n      ? `• ${LABEL[k]}: ${'not available'} (${v.reason})`\n      : `• ${LABEL[k]}: ${valueText(k, v.value)} → ${v.reason} (${sign(v.contribution)})`);\n  }\n  lines.push(`${'Score'}: ${f.score ?? '—'}/100`);\n} else {\n  const shown = f.ranked.slice(0, 10);\n  lines.push(`Top ${shown.length} of ${f.universe_size} stocks in ${f.universe_name} (${f.indicators.join(', ')}) · data: ${when(f.data_as_of)}`);\n  // Each contribution with the label of the rule that produced it (RULE_LABELS in Normalise),\n  // so the narrator never has to guess what \"+0.5\" means.\n  for (const x of shown) {\n    const parts = Object.entries(x.contributions)\n      .map(([k, c]) => c == null ? `${LABEL[k]} n/a` : `${x.labels[k]} (${sign(c)})`).join(', ');\n    lines.push(`${x.rank}. ${x.symbol} — ${x.score}/100: ${parts}`);\n  }\n  if (f.failed?.length) lines.push(`Could not analyse ${f.failed.length}: ${f.failed.slice(0, 8).map(x => x.symbol).join(', ')}${f.failed.length > 8 ? '…' : ''}`);\n}\n// Number check, same rule as the chat narrator: every number in the LLM text must be in the facts.\nlet explanation = String($json.text ?? '').trim();\n{\n  const allowed = [...JSON.stringify(f).matchAll(/-?\\d+(?:\\.\\d+)?(?:e-?\\d+)?/g)].map(m => Number(m[0]));\n  const bad = [...explanation.matchAll(/-?\\d[\\d,]*(?:\\.\\d+)?/g)].map(m => m[0]).filter(raw => {\n    const n = Number(raw.replace(/,/g, '')), dec = raw.includes('.') ? raw.split('.')[1].length : 0;\n    if (Number.isInteger(n) && (Math.abs(n) <= 10 || (n >= 1990 && n <= 2100))) return false;\n    const tol = Math.max(0.0051, 0.5 * Math.pow(10, -dec));\n    return !allowed.some(a => Math.abs(a - n) <= tol || Math.abs(Math.abs(a) - Math.abs(n)) <= tol);\n  });\n  if (f.type === 'rank') bad.push(...wordingProblems(explanation, f.ranked.slice(0, 10)));\n  else bad.push(...wordingProblems(explanation, [{ symbol: f.symbol, contributions:\n    Object.fromEntries(Object.entries(f.indicators).map(([k, v]) => [k, v.available === false ? null : v.contribution])) }], true));\n  if (bad.length) explanation = '';\n}\nlines.push('', explanation || '(No explanation available right now; the values above are the computed results.)');\n\nreturn [{ json: {\n  intent: f.type === 'rank' ? 'rank' : 'analyse', status: 'done', reply: lines.join('\\n'),\n  data: { analysis: f, explanation: explanation || null },\n  row: { user_id: ctx.user_id, request_id: ctx.request_id, kind: f.type, symbol: f.symbol ?? null,\n         // big universes: keep the top 50 rows in the history table, not all 2,000\n         indicators: ctx.analysis.indicators, metrics: f.type === 'rank' ? { ...f, ranked: f.ranked.slice(0, 50), failed: (f.failed ?? []).slice(0, 50) } : f,\n         score: f.score ?? f.ranked?.[0]?.score ?? null,\n         explanation: explanation || null, data_as_of: f.data_as_of },\n} }];\n"
+        "jsCode": "function wordingProblems(text, ranked, single = false) {\n  const problems = [];\n  if (!text || !ranked?.length) return problems;\n  const esc = s => s.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');\n  const IND = /rsi|macd|trend|volume|sma|overbought|oversold/;\n  // \"not in a clear uptrend\", \"isn't oversold\": negated phrases say nothing about the stock.\n  const NEG = /\\b(not|no|never|isn['’]t|aren['’]t|without|lacks?)\\s+(yet\\s+)?(a\\s+|an\\s+|in\\s+a\\s+)?(clear\\s+|clean\\s+|strong\\s+|unusually\\s+)?(up-?trend|down-?trend|overbought|oversold|(heavy|high|strong)\\s+volume)/g;\n  const contradicts = (seg, c) => (seg = seg.replace(NEG, ' '),\n    (/\\bup-?trend/.test(seg) && c.ma_trend !== 1) ||\n    (/\\bdown-?trend/.test(seg) && c.ma_trend !== -1) ||\n    (/overbought/.test(seg) && c.rsi !== -1) ||\n    (/oversold/.test(seg) && c.rsi !== 1) ||\n    (/neutral to strong|50-70|50–70/.test(seg) && c.rsi !== 0) ||\n    (/rsi (over|above) 50/.test(seg) && c.rsi > 0) ||\n    (/rsi below 50|below neutral/.test(seg) && c.rsi <= 0) ||\n    (/(negative|falling|bearish)[^,;]{0,12}macd|macd[^,;]{0,25}(negative|falling|bearish)/.test(seg) && c.macd > 0) ||\n    (/(heavy|high|strong) volume/.test(seg) && !c.volume) ||\n    // a stock described by its indicators must not hide a negative one\n    (IND.test(seg) && ((c.rsi === -1 && !/overbought|above 70/.test(seg)) ||\n                       (c.macd === -1 && !/macd/.test(seg)) ||\n                       (c.ma_trend === -1 && !/downtrend/.test(seg)) ||\n                       (c.volume === -1 && !/down day/.test(seg)))));\n  // One analysed stock: the whole text is about it, symbol or not.\n  if (single) {\n    if (contradicts(text.toLowerCase(), ranked[0].contributions ?? {}))\n      problems.push(`${ranked[0].symbol}: wording does not match its indicators`);\n    return problems;\n  }\n  const units = text.split(/\\n+|(?<=[.!?])\\s+(?=[A-Z0-9])/);\n  for (const unit of units) {\n    const hits = ranked.map(x => ({ x, i: unit.search(new RegExp(`\\\\b${esc(x.symbol)}\\\\b`)) }))\n      .filter(h => h.i >= 0).sort((a, b) => a.i - b.i);\n    const segs = hits.map((h, j) => unit.slice(h.i, j + 1 < hits.length ? hits[j + 1].i : unit.length).toLowerCase());\n    for (let j = 0; j < hits.length; j++) {\n      // \"AMZN, JPM and MSFT ...\": a stock without its own words shares the next description\n      let k = j;\n      while (k < hits.length - 1 && !IND.test(segs[k])) k++;\n      const c = hits[j].x.contributions ?? {};\n      if (contradicts(segs[k], c)) problems.push(`${hits[j].x.symbol}: wording does not match its indicators`);\n    }\n  }\n  return [...new Set(problems)];\n}\nconst ctx = $('Shape API result').first().json;\nconst f = ctx.facts;\nconst n = (v, d = 2) => v == null ? '—' : new Intl.NumberFormat('en-US',\n  { minimumFractionDigits: d, maximumFractionDigits: d }).format(v);\nconst when = iso => new Date(iso).toISOString().slice(0, 16).replace('T', ' ') + ' UTC';\nconst sign = c => (c > 0 ? '+' : '') + c;\nconst LABEL = { rsi: 'RSI-14', macd: 'MACD', ma_trend: 'Trend (SMA50/200)', volume: 'Volume' };\nconst valueText = (k, v) => ({\n  rsi: () => n(v.rsi_14),\n  macd: () => `hist ${n(v.histogram, 4)} (${'prev'} ${n(v.histogram_prev, 4)})`,\n  ma_trend: () => `${n(v.close)} / ${n(v.sma50)} / ${n(v.sma200)}`,\n  volume: () => `${n(v.ratio)}× ${'20d avg'}`,\n}[k] ?? (() => JSON.stringify(v)))();\n\nconst lines = [];\nif (f.type === 'single') {\n  lines.push(`${f.symbol}${f.name ? ` (${f.name})` : ''} · ${'Last price'} ${n(f.last_price)} ${f.currency} · ${'data'}: ${when(f.data_as_of)}`);\n  for (const [k, v] of Object.entries(f.indicators)) {\n    lines.push(v.available === false\n      ? `• ${LABEL[k]}: ${'not available'} (${v.reason})`\n      : `• ${LABEL[k]}: ${valueText(k, v.value)} → ${v.reason} (${sign(v.contribution)})`);\n  }\n  lines.push(`${'Score'}: ${f.score ?? '—'}/100`);\n} else {\n  const shown = f.ranked.slice(0, 10);\n  lines.push(`Top ${shown.length} of ${f.universe_size} stocks in ${f.universe_name} (${f.indicators.join(', ')}) · data: ${when(f.data_as_of)}`);\n  // Each contribution with the label of the rule that produced it (RULE_LABELS in Normalise),\n  // so the narrator never has to guess what \"+0.5\" means.\n  for (const x of shown) {\n    const parts = Object.entries(x.contributions)\n      .map(([k, c]) => c == null ? `${LABEL[k]} n/a` : `${x.labels[k]} (${sign(c)})`).join(', ');\n    lines.push(`${x.rank}. ${x.symbol} — ${x.score}/100: ${parts}`);\n  }\n  if (f.failed?.length) lines.push(`Could not analyse ${f.failed.length}: ${f.failed.slice(0, 8).map(x => x.symbol).join(', ')}${f.failed.length > 8 ? '…' : ''}`);\n}\n// Number check, same rule as the chat narrator: every number in the LLM text must be in the facts.\nlet explanation = String($json.text ?? '').trim();\n{\n  const allowed = [...JSON.stringify(f).matchAll(/-?\\d+(?:\\.\\d+)?(?:e-?\\d+)?/g)].map(m => Number(m[0]));\n  const bad = [...explanation.matchAll(/-?\\d[\\d,]*(?:\\.\\d+)?/g)].map(m => m[0]).filter(raw => {\n    const n = Number(raw.replace(/,/g, '')), dec = raw.includes('.') ? raw.split('.')[1].length : 0;\n    if (Number.isInteger(n) && (Math.abs(n) <= 10 || (n >= 1990 && n <= 2100))) return false;\n    const tol = Math.max(0.0051, 0.5 * Math.pow(10, -dec));\n    return !allowed.some(a => Math.abs(a - n) <= tol || Math.abs(Math.abs(a) - Math.abs(n)) <= tol);\n  });\n  if (f.type === 'rank') bad.push(...wordingProblems(explanation, f.ranked.slice(0, 10)));\n  else bad.push(...wordingProblems(explanation, [{ symbol: f.symbol, contributions:\n    Object.fromEntries(Object.entries(f.indicators).map(([k, v]) => [k, v.available === false ? null : v.contribution])) }], true));\n  if (bad.length) explanation = '';\n}\nlines.push('', explanation || '(No explanation available right now; the values above are the computed results.)');\n\nreturn [{ json: {\n  intent: f.type === 'rank' ? 'rank' : 'analyse', status: 'done', reply: lines.join('\\n'),\n  data: { analysis: f, explanation: explanation || null },\n  row: { user_id: ctx.user_id, request_id: ctx.request_id, kind: f.type, symbol: f.symbol ?? null,\n         // big universes: keep the top 50 rows in the history table, not all 2,000\n         indicators: ctx.analysis.indicators, metrics: f.type === 'rank' ? { ...f, ranked: f.ranked.slice(0, 50), failed: (f.failed ?? []).slice(0, 50) } : f,\n         score: f.score ?? f.ranked?.[0]?.score ?? null,\n         explanation: explanation || null, data_as_of: f.data_as_of },\n} }];\n"
       },
-      "name": "Analysis reply",
-      "id": "69a0a10d-1c85-5396-8586-22c3db3394cb",
+      "name": "Build analysis reply",
+      "id": "15a8a255-8e6e-50e7-b4ed-e4560023cf9b",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -269,8 +269,8 @@
           "queryReplacement": "={{ JSON.stringify($json.row) }}"
         }
       },
-      "name": "Save analysis",
-      "id": "ede1c32c-ef65-55da-aeac-46925972c099",
+      "name": "DB: save analysis",
+      "id": "56f2a6da-c4e7-5193-b39d-995c179bd4d6",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -289,10 +289,10 @@
     },
     {
       "parameters": {
-        "jsCode": "const r = $('Analysis reply').first().json;\nreturn [{ json: { intent: r.intent, status: r.status, reply: r.reply, data: { ...r.data, analysis_id: $json.id } } }];"
+        "jsCode": "const r = $('Build analysis reply').first().json;\nreturn [{ json: { intent: r.intent, status: r.status, reply: r.reply, data: { ...r.data, analysis_id: $json.id } } }];"
       },
-      "name": "Return reply",
-      "id": "be0b1902-2db7-5c73-b9a6-5340e4e6c34a",
+      "name": "Return result to caller",
+      "id": "d16693d5-d337-50ee-8119-934daa67d0b4",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -302,10 +302,10 @@
     },
     {
       "parameters": {
-        "jsCode": "// HTTP node error output, after its retries.\nconst ctx = $('Start').first().json;\nconst e = $json.error ?? {};\nconst msg = String(e.message ?? e.description ?? JSON.stringify(e)).slice(0, 500);\nconst code = Number(e.httpCode ?? (msg.match(/^(\\d{3})\\b/) ?? [])[1]);\nconst sym = ctx.analysis?.symbol;\nlet reply;\nif (code === 404) reply = `No price history found for ${sym}. Could you check the ticker?`;\nelse if (code === 400) reply = 'The analysis request was invalid: ' + msg;\nelse reply = 'The analysis service is unavailable right now (tried 3 times). Please try again shortly.';\nreturn [{ json: {\n  intent: ctx.mode === 'rank' ? 'rank' : 'analyse', status: code === 404 || code === 400 ? 'done' : 'failed',\n  reply, data: { error: msg, http_code: code || null },\n  log: { workflow_name: $workflow.name, node_name: ctx.mode === 'rank' ? 'Rank API' : 'Analyse API',\n         execution_id: $execution.id, event_id: ctx.event_id, message: msg },\n} }];\n"
+        "jsCode": "// HTTP node error output, after its retries.\nconst ctx = $('Input: one stock or a ranking').first().json;\nconst e = $json.error ?? {};\nconst msg = String(e.message ?? e.description ?? JSON.stringify(e)).slice(0, 500);\nconst code = Number(e.httpCode ?? (msg.match(/^(\\d{3})\\b/) ?? [])[1]);\nconst sym = ctx.analysis?.symbol;\nlet reply;\nif (code === 404) reply = `No price history found for ${sym}. Could you check the ticker?`;\nelse if (code === 400) reply = 'The analysis request was invalid: ' + msg;\nelse reply = 'The analysis service is unavailable right now (tried 3 times). Please try again shortly.';\nreturn [{ json: {\n  intent: ctx.mode === 'rank' ? 'rank' : 'analyse', status: code === 404 || code === 400 ? 'done' : 'failed',\n  reply, data: { error: msg, http_code: code || null },\n  log: { workflow_name: $workflow.name, node_name: ctx.mode === 'rank' ? 'API: score and rank stocks' : 'API: analyse one stock',\n         execution_id: $execution.id, event_id: ctx.event_id, message: msg },\n} }];\n"
       },
-      "name": "Describe failure",
-      "id": "063742ea-ae44-59bc-84d4-4d307e8c83ed",
+      "name": "Describe API failure",
+      "id": "d88c7617-131a-5e11-bcfd-04e256c1c27f",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -321,8 +321,8 @@
           "queryReplacement": "={{ JSON.stringify($json.log) }}"
         }
       },
-      "name": "Log failure",
-      "id": "79f5d573-c706-5a43-b48a-21a0cc70c5e4",
+      "name": "DB: log API failure",
+      "id": "342c079e-165a-5765-ba3d-b98b9d54a07a",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -341,10 +341,10 @@
     },
     {
       "parameters": {
-        "jsCode": "const r = $('Describe failure').first().json;\nreturn [{ json: { intent: r.intent, status: r.status, reply: r.reply, data: { ...r.data, error_log_id: $json.id } } }];"
+        "jsCode": "const r = $('Describe API failure').first().json;\nreturn [{ json: { intent: r.intent, status: r.status, reply: r.reply, data: { ...r.data, error_log_id: $json.id } } }];"
       },
-      "name": "Failure reply",
-      "id": "c5c10927-d502-58fe-bb1a-e9d287eb1312",
+      "name": "Reply: analysis unavailable",
+      "id": "27487d28-682b-5b26-8622-5833f18eab20",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -354,153 +354,153 @@
     }
   ],
   "connections": {
-    "Start": {
+    "Input: one stock or a ranking": {
       "main": [
         [
           {
-            "node": "Switch: mode",
+            "node": "Route: one stock or ranking",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Switch: mode": {
+    "Route: one stock or ranking": {
       "main": [
         [
           {
-            "node": "Analyse API",
+            "node": "API: analyse one stock",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Universe",
+            "node": "DB: stocks in chosen universe",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Universe": {
+    "DB: stocks in chosen universe": {
       "main": [
         [
           {
-            "node": "Rank API",
+            "node": "API: score and rank stocks",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Analyse API": {
+    "API: analyse one stock": {
       "main": [
         [
           {
-            "node": "Normalise result",
+            "node": "Shape API result",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Describe failure",
+            "node": "Describe API failure",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Rank API": {
+    "API: score and rank stocks": {
       "main": [
         [
           {
-            "node": "Normalise result",
+            "node": "Shape API result",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Describe failure",
+            "node": "Describe API failure",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Normalise result": {
+    "Shape API result": {
       "main": [
         [
           {
-            "node": "Explain results",
+            "node": "AI: explain top results",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Explain results": {
+    "AI: explain top results": {
       "main": [
         [
           {
-            "node": "Analysis reply",
+            "node": "Build analysis reply",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Analysis reply": {
+    "Build analysis reply": {
       "main": [
         [
           {
-            "node": "Save analysis",
+            "node": "DB: save analysis",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Save analysis": {
+    "DB: save analysis": {
       "main": [
         [
           {
-            "node": "Return reply",
+            "node": "Return result to caller",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Describe failure": {
+    "Describe API failure": {
       "main": [
         [
           {
-            "node": "Log failure",
+            "node": "DB: log API failure",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Log failure": {
+    "DB: log API failure": {
       "main": [
         [
           {
-            "node": "Failure reply",
+            "node": "Reply: analysis unavailable",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Chat model (explain)": {
+    "LLM for explanation": {
       "ai_languageModel": [
         [
           {
-            "node": "Explain results",
+            "node": "AI: explain top results",
             "type": "ai_languageModel",
             "index": 0
           }

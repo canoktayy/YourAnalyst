@@ -106,7 +106,7 @@ def connect(*pairs):
     return conns
 
 
-# Every workflow reports unhandled failures to "YA – Error handler" (error_handler.py).
+# Every workflow reports unhandled failures to "YA 9 – Error handler: log every failure" (error_handler.py).
 ERROR_WORKFLOW_ID = "YAerrorHandler01"
 
 

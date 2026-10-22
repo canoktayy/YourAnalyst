@@ -1,6 +1,6 @@
 {
   "id": "YAanswerQuest001",
-  "name": "YA – Answer question",
+  "name": "YA 5 – Sub: answer a question about my money",
   "active": false,
   "nodes": [
     {
@@ -31,8 +31,8 @@
           ]
         }
       },
-      "name": "Start",
-      "id": "7dd09f10-3088-5f9b-9278-d26abd931e27",
+      "name": "Input: question",
+      "id": "296daef2-c26e-5694-b81b-8e28c9d366b6",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
       "position": [
@@ -48,8 +48,8 @@
           "queryReplacement": "={{ JSON.stringify({ user_id: $json.user_id }) }}"
         }
       },
-      "name": "Portfolio snapshot",
-      "id": "6f1ecdc8-069e-5cbd-ab5c-b104692ec1e8",
+      "name": "DB: portfolio snapshot",
+      "id": "86a87c52-9b02-56ba-9d57-6e954b11522a",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -68,10 +68,10 @@
     },
     {
       "parameters": {
-        "jsCode": "// Every number the answer may use is computed here; the LLM gets only these facts.\nconst start = $('Start').first().json;\nconst snap = $json;\nconst base = snap.base_currency;\nconst r2 = n => Math.round(Number(n) * 100) / 100;\nconst r1 = n => Math.round(Number(n) * 10) / 10;\nconst t = snap.totals ?? {};\nconst total_assets = Number(t.total_assets ?? 0);\n\nconst positions = snap.positions.map(p => {\n  const value = Number(p.value ?? 0), pl = Number(p.unrealised_pl ?? 0), fx = Number(p.fx_to_base);\n  const cost = value - pl;\n  return {\n    symbol: p.symbol, name: p.name, quantity: Number(p.quantity), price: r2(p.price), currency: p.price_currency,\n    value: r2(value), value_base: r2(value * fx), cost: r2(cost),\n    profit: r2(pl), profit_base: r2(pl * fx), profit_pct: cost > 0 ? r1(pl / cost * 100) : null,\n    share_of_assets_pct: total_assets > 0 ? r1(value * fx / total_assets * 100) : null,\n    price_status: p.price_status, _fx: fx,\n  };\n}).sort((a, b) => b.value_base - a.value_base);\n\nconst accounts = snap.accounts.map(a => ({ name: a.name, amount: r2(a.amount), currency: a.currency,\n  amount_base: r2(a.base_amount), share_of_assets_pct: total_assets > 0 ? r1(a.base_amount / total_assets * 100) : null }));\nconst liabilities = snap.liabilities.map(l => ({ name: l.name, amount: r2(l.amount), currency: l.currency, amount_base: r2(l.base_amount) }));\nconst cash_base = r2(accounts.reduce((s, a) => s + a.amount_base, 0));\nconst stocks_base = r2(positions.reduce((s, p) => s + p.value_base, 0));\n\nconst facts = {\n  base_currency: base,\n  net_worth: r2(t.net_worth ?? 0), total_assets: r2(total_assets), total_liabilities: r2(t.total_liabilities ?? 0),\n  cash_and_other_assets: cash_base, stocks_value: stocks_base,\n  net_worth_if_all_debts_paid_from_cash: r2(cash_base - Number(t.total_liabilities ?? 0)),\n  positions: positions.map(({ _fx, ...p }) => p), accounts, liabilities,\n};\nif (positions.length) {\n  facts.largest_position = positions[0].symbol;\n  const best = [...positions].sort((a, b) => b.profit_base - a.profit_base)[0];\n  facts.most_profitable_position = best.symbol;\n}\n\n// What-if: change one or more prices, recompute only what depends on them.\nlet scenario = null;\nif (start.mode === 'what_if') {\n  let delta = 0;\n  const changes = start.question.scenario.map(s => {\n    const p = positions.find(x => x.symbol === s.symbol);\n    if (!p) return { symbol: s.symbol, held: false, note: `${s.symbol} is not in the portfolio, so net worth does not change` };\n    const new_price = s.price != null ? Number(s.price) : p.price * (1 + Number(s.change_pct) / 100);\n    const new_value = p.quantity * new_price;\n    const d = (new_value - p.value) * p._fx;\n    delta += d;\n    return { symbol: p.symbol, held: true, quantity: p.quantity, current_price: p.price, new_price: r2(new_price),\n             currency: p.currency, change_pct: s.change_pct ?? r1((new_price / p.price - 1) * 100),\n             current_value: p.value, new_value: r2(new_value), value_change_base: r2(d) };\n  });\n  const new_net = facts.net_worth + delta;\n  scenario = { changes, net_worth_now: facts.net_worth, net_worth_after: r2(new_net), net_worth_change: r2(delta),\n               net_worth_change_pct: facts.net_worth ? r1(delta / Math.abs(facts.net_worth) * 100) : null };\n  facts.scenario = scenario;\n}\n\n// The LLM sees every amount as text with its currency (\"107,065.00 USD\"), so it cannot put a\n// USD figure next to \"EUR\"; Check numbers knows the currency of every amount it may quote.\nconst fmt2 = n => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);\nconst amounts = [];   // [value, currency]\nconst lab = (n, cur) => {\n  if (n == null || !Number.isFinite(Number(n))) return null;\n  amounts.push([Number(n), cur]);\n  return `${fmt2(n)} ${cur}`;\n};\nconst llm_facts = {\n  base_currency: base,\n  net_worth: lab(facts.net_worth, base), total_assets: lab(facts.total_assets, base),\n  total_liabilities: lab(facts.total_liabilities, base), cash_and_other_assets: lab(facts.cash_and_other_assets, base),\n  stocks_value: lab(facts.stocks_value, base),\n  net_worth_if_all_debts_paid_from_cash: lab(facts.net_worth_if_all_debts_paid_from_cash, base),\n  positions: positions.map(p => ({ symbol: p.symbol, name: p.name, quantity: p.quantity,\n    price: lab(p.price, p.currency), value: lab(p.value, p.currency), value_in_base: lab(p.value_base, base),\n    cost: lab(p.cost, p.currency), profit: lab(p.profit, p.currency), profit_in_base: lab(p.profit_base, base),\n    profit_pct: p.profit_pct, share_of_assets_pct: p.share_of_assets_pct, price_status: p.price_status })),\n  accounts: accounts.map(a => ({ name: a.name, amount: lab(a.amount, a.currency), amount_in_base: lab(a.amount_base, base),\n    share_of_assets_pct: a.share_of_assets_pct })),\n  liabilities: liabilities.map(l => ({ name: l.name, amount: lab(l.amount, l.currency), amount_in_base: lab(l.amount_base, base) })),\n  largest_position: facts.largest_position, most_profitable_position: facts.most_profitable_position,\n};\nif (scenario) llm_facts.scenario = {\n  changes: scenario.changes.map(c => c.held ? { symbol: c.symbol, held: true, quantity: c.quantity,\n    current_price: lab(c.current_price, c.currency), new_price: lab(c.new_price, c.currency), change_pct: c.change_pct,\n    current_value: lab(c.current_value, c.currency), new_value: lab(c.new_value, c.currency),\n    value_change_in_base: lab(c.value_change_base, base) } : c),\n  net_worth_now: lab(scenario.net_worth_now, base), net_worth_after: lab(scenario.net_worth_after, base),\n  net_worth_change: lab(scenario.net_worth_change, base), net_worth_change_pct: scenario.net_worth_change_pct,\n};\n\n// Plain-text answer built from the same facts: shown above the LLM text for what-if, and\n// on its own whenever the LLM text fails the number check.\nconst money = (n, c) => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n) + ' ' + c;\nconst sign = n => (n >= 0 ? '+' : '−') ;\nlet block;\nif (scenario) {\n  block = [\n    ...scenario.changes.map(c => c.held\n      ? `${c.symbol}: ${c.quantity} shares × ${money(c.new_price, c.currency)} = ${money(c.new_value, c.currency)} (now ${money(c.current_value, c.currency)})`\n      : c.note),\n    `Net worth now: ${money(scenario.net_worth_now, base)}`,\n    `Net worth in this scenario: ${money(scenario.net_worth_after, base)} (${sign(scenario.net_worth_change)}${money(Math.abs(scenario.net_worth_change), base)}`\n      + (scenario.net_worth_change_pct != null ? `, ${sign(scenario.net_worth_change)}${Math.abs(scenario.net_worth_change_pct)}%)` : ')'),\n  ].join('\\n');\n} else {\n  block = [\n    ...positions.map(p => `• ${p.symbol}: ${p.quantity} × ${money(p.price, p.currency)} = ${money(p.value_base, base)} · ${p.share_of_assets_pct}% of assets · P/L ${sign(p.profit_base)}${money(Math.abs(p.profit_base), base)}${p.profit_pct != null ? ` (${sign(p.profit_pct)}${Math.abs(p.profit_pct)}%)` : ''}`),\n    ...accounts.map(a => `• ${a.name}: ${money(a.amount_base, base)} · ${a.share_of_assets_pct}% of assets`),\n    `Assets ${money(facts.total_assets, base)} − Liabilities ${money(facts.total_liabilities, base)} = Net worth ${money(facts.net_worth, base)}`,\n  ].join('\\n');\n}\nreturn [{ json: { mode: start.mode, question: start.question.text, facts, llm_facts, amounts, block } }];\n"
+        "jsCode": "// Every number the answer may use is computed here; the LLM gets only these facts.\nconst start = $('Input: question').first().json;\nconst snap = $json;\nconst base = snap.base_currency;\nconst r2 = n => Math.round(Number(n) * 100) / 100;\nconst r1 = n => Math.round(Number(n) * 10) / 10;\nconst t = snap.totals ?? {};\nconst total_assets = Number(t.total_assets ?? 0);\n\nconst positions = snap.positions.map(p => {\n  const value = Number(p.value ?? 0), pl = Number(p.unrealised_pl ?? 0), fx = Number(p.fx_to_base);\n  const cost = value - pl;\n  return {\n    symbol: p.symbol, name: p.name, quantity: Number(p.quantity), price: r2(p.price), currency: p.price_currency,\n    value: r2(value), value_base: r2(value * fx), cost: r2(cost),\n    profit: r2(pl), profit_base: r2(pl * fx), profit_pct: cost > 0 ? r1(pl / cost * 100) : null,\n    share_of_assets_pct: total_assets > 0 ? r1(value * fx / total_assets * 100) : null,\n    price_status: p.price_status, _fx: fx,\n  };\n}).sort((a, b) => b.value_base - a.value_base);\n\nconst accounts = snap.accounts.map(a => ({ name: a.name, amount: r2(a.amount), currency: a.currency,\n  amount_base: r2(a.base_amount), share_of_assets_pct: total_assets > 0 ? r1(a.base_amount / total_assets * 100) : null }));\nconst liabilities = snap.liabilities.map(l => ({ name: l.name, amount: r2(l.amount), currency: l.currency, amount_base: r2(l.base_amount) }));\nconst cash_base = r2(accounts.reduce((s, a) => s + a.amount_base, 0));\nconst stocks_base = r2(positions.reduce((s, p) => s + p.value_base, 0));\n\nconst facts = {\n  base_currency: base,\n  net_worth: r2(t.net_worth ?? 0), total_assets: r2(total_assets), total_liabilities: r2(t.total_liabilities ?? 0),\n  cash_and_other_assets: cash_base, stocks_value: stocks_base,\n  net_worth_if_all_debts_paid_from_cash: r2(cash_base - Number(t.total_liabilities ?? 0)),\n  positions: positions.map(({ _fx, ...p }) => p), accounts, liabilities,\n};\nif (positions.length) {\n  facts.largest_position = positions[0].symbol;\n  const best = [...positions].sort((a, b) => b.profit_base - a.profit_base)[0];\n  facts.most_profitable_position = best.symbol;\n}\n\n// What-if: change one or more prices, recompute only what depends on them.\nlet scenario = null;\nif (start.mode === 'what_if') {\n  let delta = 0;\n  const changes = start.question.scenario.map(s => {\n    const p = positions.find(x => x.symbol === s.symbol);\n    if (!p) return { symbol: s.symbol, held: false, note: `${s.symbol} is not in the portfolio, so net worth does not change` };\n    const new_price = s.price != null ? Number(s.price) : p.price * (1 + Number(s.change_pct) / 100);\n    const new_value = p.quantity * new_price;\n    const d = (new_value - p.value) * p._fx;\n    delta += d;\n    return { symbol: p.symbol, held: true, quantity: p.quantity, current_price: p.price, new_price: r2(new_price),\n             currency: p.currency, change_pct: s.change_pct ?? r1((new_price / p.price - 1) * 100),\n             current_value: p.value, new_value: r2(new_value), value_change_base: r2(d) };\n  });\n  const new_net = facts.net_worth + delta;\n  scenario = { changes, net_worth_now: facts.net_worth, net_worth_after: r2(new_net), net_worth_change: r2(delta),\n               net_worth_change_pct: facts.net_worth ? r1(delta / Math.abs(facts.net_worth) * 100) : null };\n  facts.scenario = scenario;\n}\n\n// The LLM sees every amount as text with its currency (\"107,065.00 USD\"), so it cannot put a\n// USD figure next to \"EUR\"; Check numbers knows the currency of every amount it may quote.\nconst fmt2 = n => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);\nconst amounts = [];   // [value, currency]\nconst lab = (n, cur) => {\n  if (n == null || !Number.isFinite(Number(n))) return null;\n  amounts.push([Number(n), cur]);\n  return `${fmt2(n)} ${cur}`;\n};\nconst llm_facts = {\n  base_currency: base,\n  net_worth: lab(facts.net_worth, base), total_assets: lab(facts.total_assets, base),\n  total_liabilities: lab(facts.total_liabilities, base), cash_and_other_assets: lab(facts.cash_and_other_assets, base),\n  stocks_value: lab(facts.stocks_value, base),\n  net_worth_if_all_debts_paid_from_cash: lab(facts.net_worth_if_all_debts_paid_from_cash, base),\n  positions: positions.map(p => ({ symbol: p.symbol, name: p.name, quantity: p.quantity,\n    price: lab(p.price, p.currency), value: lab(p.value, p.currency), value_in_base: lab(p.value_base, base),\n    cost: lab(p.cost, p.currency), profit: lab(p.profit, p.currency), profit_in_base: lab(p.profit_base, base),\n    profit_pct: p.profit_pct, share_of_assets_pct: p.share_of_assets_pct, price_status: p.price_status })),\n  accounts: accounts.map(a => ({ name: a.name, amount: lab(a.amount, a.currency), amount_in_base: lab(a.amount_base, base),\n    share_of_assets_pct: a.share_of_assets_pct })),\n  liabilities: liabilities.map(l => ({ name: l.name, amount: lab(l.amount, l.currency), amount_in_base: lab(l.amount_base, base) })),\n  largest_position: facts.largest_position, most_profitable_position: facts.most_profitable_position,\n};\nif (scenario) llm_facts.scenario = {\n  changes: scenario.changes.map(c => c.held ? { symbol: c.symbol, held: true, quantity: c.quantity,\n    current_price: lab(c.current_price, c.currency), new_price: lab(c.new_price, c.currency), change_pct: c.change_pct,\n    current_value: lab(c.current_value, c.currency), new_value: lab(c.new_value, c.currency),\n    value_change_in_base: lab(c.value_change_base, base) } : c),\n  net_worth_now: lab(scenario.net_worth_now, base), net_worth_after: lab(scenario.net_worth_after, base),\n  net_worth_change: lab(scenario.net_worth_change, base), net_worth_change_pct: scenario.net_worth_change_pct,\n};\n\n// Plain-text answer built from the same facts: shown above the LLM text for what-if, and\n// on its own whenever the LLM text fails the number check.\nconst money = (n, c) => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n) + ' ' + c;\nconst sign = n => (n >= 0 ? '+' : '−') ;\nlet block;\nif (scenario) {\n  block = [\n    ...scenario.changes.map(c => c.held\n      ? `${c.symbol}: ${c.quantity} shares × ${money(c.new_price, c.currency)} = ${money(c.new_value, c.currency)} (now ${money(c.current_value, c.currency)})`\n      : c.note),\n    `Net worth now: ${money(scenario.net_worth_now, base)}`,\n    `Net worth in this scenario: ${money(scenario.net_worth_after, base)} (${sign(scenario.net_worth_change)}${money(Math.abs(scenario.net_worth_change), base)}`\n      + (scenario.net_worth_change_pct != null ? `, ${sign(scenario.net_worth_change)}${Math.abs(scenario.net_worth_change_pct)}%)` : ')'),\n  ].join('\\n');\n} else {\n  block = [\n    ...positions.map(p => `• ${p.symbol}: ${p.quantity} × ${money(p.price, p.currency)} = ${money(p.value_base, base)} · ${p.share_of_assets_pct}% of assets · P/L ${sign(p.profit_base)}${money(Math.abs(p.profit_base), base)}${p.profit_pct != null ? ` (${sign(p.profit_pct)}${Math.abs(p.profit_pct)}%)` : ''}`),\n    ...accounts.map(a => `• ${a.name}: ${money(a.amount_base, base)} · ${a.share_of_assets_pct}% of assets`),\n    `Assets ${money(facts.total_assets, base)} − Liabilities ${money(facts.total_liabilities, base)} = Net worth ${money(facts.net_worth, base)}`,\n  ].join('\\n');\n}\nreturn [{ json: { mode: start.mode, question: start.question.text, facts, llm_facts, amounts, block } }];\n"
       },
-      "name": "Compute answer",
-      "id": "fb48d889-c212-5223-949e-8f31cd3477ae",
+      "name": "Compute answer in code",
+      "id": "1da209c0-e958-5bee-a5d0-413961b3d7b1",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -92,8 +92,8 @@
           ]
         }
       },
-      "name": "Explain answer",
-      "id": "af8b4e49-c776-52fa-97f7-f3e79b68e113",
+      "name": "AI: word the answer",
+      "id": "4efe67fa-6702-56d8-bf65-845e1353cfb8",
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.7,
       "position": [
@@ -120,8 +120,8 @@
           "extraBody": "={{ $env.YA_LLM_EXTRA_BODY || '{}' }}"
         }
       },
-      "name": "Chat model (answer)",
-      "id": "10565ab1-ac7c-538a-8a35-ca6c26fc9967",
+      "name": "LLM for answer",
+      "id": "6bdfdb96-61d2-5b67-87ca-7c521f5b2ba4",
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.2,
       "position": [
@@ -137,10 +137,10 @@
     },
     {
       "parameters": {
-        "jsCode": "// Number check: every number in the LLM's text must exist in FACTS (or in the question),\n// and an amount written with a currency must have that currency in FACTS (a USD value\n// called \"EUR\" is rejected). Allowed tolerance follows what was written: \"2,130,335\" may\n// round to an integer, \"45.3%\" to one decimal. Anything else means the model invented a value.\nconst c = $('Compute answer').first().json;\nconst text = String($json.text ?? '').trim();\n\nconst allowed = c.amounts.map(([v, cur]) => [v, cur]);             // amounts with their currency\n(function walk(v) {                                               // percentages, quantities: no currency\n  if (typeof v === 'number' && Number.isFinite(v)) allowed.push([v, null], [Math.abs(v), null]);\n  else if (v && typeof v === 'object') Object.values(v).forEach(walk);\n})(c.llm_facts);\nc.amounts.forEach(([v, cur]) => allowed.push([Math.abs(v), cur]));\nfor (const m of c.question.matchAll(/\\d+(?:[.,]\\d+)*/g)) allowed.push([Number(m[0].replace(/,/g, '')), null]);\n\nconst MULT = { k: 1e3, thousand: 1e3, m: 1e6, million: 1e6, bn: 1e9, billion: 1e9 };\nconst SYM = { '€': 'EUR', '$': 'USD', '£': 'GBP', '₺': 'TRY' };\nconst bad = [];\nfor (const m of text.matchAll(/([€$£₺])?\\s?(\\d[\\d,]*(?:\\.\\d+)?)(?:\\s*(thousand|million|billion|bn|k|m)\\b)?(?:\\s*(EUR|USD|TRY|GBP)\\b)?/gi)) {\n  const raw = m[2];\n  const n = Number(raw.replace(/,/g, ''));\n  if (!Number.isFinite(n)) continue;\n  const decimals = raw.includes('.') ? raw.split('.')[1].length : 0;\n  const mult = MULT[String(m[3] ?? '').toLowerCase()] ?? 1;\n  const value = n * mult;\n  const cur = (m[4] ?? '').toUpperCase() || SYM[m[1]] || null;\n  if (!cur && mult === 1 && Number.isInteger(n) && (n <= 10 || (n >= 1990 && n <= 2100))) continue; // small counts, years\n  const tol = Math.max(0.0051, 0.5 * Math.pow(10, -decimals)) * mult;\n  const ok = allowed.some(([a, ac]) => Math.abs(a - value) <= tol && (!cur || ac === null || ac === cur));\n  if (!ok) bad.push(m[0].trim());\n}\n\nconst ok = text.length > 0 && !$json.error && bad.length === 0;\nconst reply = c.mode === 'what_if'\n  ? c.block + (ok ? '\\n\\n' + text : '')\n  : (ok ? text : c.block);\nreturn [{ json: {\n  intent: c.mode, status: 'done', reply,\n  data: { facts: c.facts, explanation_checked: ok, rejected_numbers: bad, llm_error: $json.error ? String($json.error.message ?? $json.error) : null },\n} }];\n"
+        "jsCode": "// Number check: every number in the LLM's text must exist in FACTS (or in the question),\n// and an amount written with a currency must have that currency in FACTS (a USD value\n// called \"EUR\" is rejected). Allowed tolerance follows what was written: \"2,130,335\" may\n// round to an integer, \"45.3%\" to one decimal. Anything else means the model invented a value.\nconst c = $('Compute answer in code').first().json;\nconst text = String($json.text ?? '').trim();\n\nconst allowed = c.amounts.map(([v, cur]) => [v, cur]);             // amounts with their currency\n(function walk(v) {                                               // percentages, quantities: no currency\n  if (typeof v === 'number' && Number.isFinite(v)) allowed.push([v, null], [Math.abs(v), null]);\n  else if (v && typeof v === 'object') Object.values(v).forEach(walk);\n})(c.llm_facts);\nc.amounts.forEach(([v, cur]) => allowed.push([Math.abs(v), cur]));\nfor (const m of c.question.matchAll(/\\d+(?:[.,]\\d+)*/g)) allowed.push([Number(m[0].replace(/,/g, '')), null]);\n\nconst MULT = { k: 1e3, thousand: 1e3, m: 1e6, million: 1e6, bn: 1e9, billion: 1e9 };\nconst SYM = { '€': 'EUR', '$': 'USD', '£': 'GBP', '₺': 'TRY' };\nconst bad = [];\nfor (const m of text.matchAll(/([€$£₺])?\\s?(\\d[\\d,]*(?:\\.\\d+)?)(?:\\s*(thousand|million|billion|bn|k|m)\\b)?(?:\\s*(EUR|USD|TRY|GBP)\\b)?/gi)) {\n  const raw = m[2];\n  const n = Number(raw.replace(/,/g, ''));\n  if (!Number.isFinite(n)) continue;\n  const decimals = raw.includes('.') ? raw.split('.')[1].length : 0;\n  const mult = MULT[String(m[3] ?? '').toLowerCase()] ?? 1;\n  const value = n * mult;\n  const cur = (m[4] ?? '').toUpperCase() || SYM[m[1]] || null;\n  if (!cur && mult === 1 && Number.isInteger(n) && (n <= 10 || (n >= 1990 && n <= 2100))) continue; // small counts, years\n  const tol = Math.max(0.0051, 0.5 * Math.pow(10, -decimals)) * mult;\n  const ok = allowed.some(([a, ac]) => Math.abs(a - value) <= tol && (!cur || ac === null || ac === cur));\n  if (!ok) bad.push(m[0].trim());\n}\n\nconst ok = text.length > 0 && !$json.error && bad.length === 0;\nconst reply = c.mode === 'what_if'\n  ? c.block + (ok ? '\\n\\n' + text : '')\n  : (ok ? text : c.block);\nreturn [{ json: {\n  intent: c.mode, status: 'done', reply,\n  data: { facts: c.facts, explanation_checked: ok, rejected_numbers: bad, llm_error: $json.error ? String($json.error.message ?? $json.error) : null },\n} }];\n"
       },
-      "name": "Check numbers",
-      "id": "b14b211f-defc-59a2-95c2-87b275ba8eef",
+      "name": "Check answer numbers (fallback)",
+      "id": "9c525b9a-8a38-5329-ad28-1263c1901104",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -150,55 +150,55 @@
     }
   ],
   "connections": {
-    "Start": {
+    "Input: question": {
       "main": [
         [
           {
-            "node": "Portfolio snapshot",
+            "node": "DB: portfolio snapshot",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Portfolio snapshot": {
+    "DB: portfolio snapshot": {
       "main": [
         [
           {
-            "node": "Compute answer",
+            "node": "Compute answer in code",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Compute answer": {
+    "Compute answer in code": {
       "main": [
         [
           {
-            "node": "Explain answer",
+            "node": "AI: word the answer",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Explain answer": {
+    "AI: word the answer": {
       "main": [
         [
           {
-            "node": "Check numbers",
+            "node": "Check answer numbers (fallback)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Chat model (answer)": {
+    "LLM for answer": {
       "ai_languageModel": [
         [
           {
-            "node": "Explain answer",
+            "node": "AI: word the answer",
             "type": "ai_languageModel",
             "index": 0
           }

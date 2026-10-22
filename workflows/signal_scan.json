@@ -1,6 +1,6 @@
 {
   "id": "YAsignalScan0001",
-  "name": "YA – Signal scan",
+  "name": "YA 6 – Signal Lab page: scan stocks",
   "active": false,
   "nodes": [
     {
@@ -10,8 +10,8 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "name": "POST /ya-scan",
-      "id": "e1605ebb-f4b2-5121-9379-1fe29747bafb",
+      "name": "Trigger: Signal Lab scan (POST /ya-scan)",
+      "id": "559b1383-4eed-5b4b-bc5c-53ac1ec11cdc",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
@@ -28,8 +28,8 @@
           "queryReplacement": "={{ JSON.stringify({ token: $json.headers['x-ya-token'] ?? null }) }}"
         }
       },
-      "name": "Auth user",
-      "id": "e0c550a7-cdd1-5317-8c50-e29df19599e6",
+      "name": "DB: find user by token",
+      "id": "8a70da64-fab9-5f55-9c2f-fddaaa5122a3",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -57,7 +57,7 @@
           },
           "conditions": [
             {
-              "id": "b6f8af9c-089b-5536-a357-ab7ff76e7f5e",
+              "id": "5961c8f7-8460-517a-8c4c-cb016f0b9826",
               "leftValue": "={{ $json.user_id }}",
               "operator": {
                 "type": "string",
@@ -71,8 +71,8 @@
         "looseTypeValidation": true,
         "options": {}
       },
-      "name": "If: authenticated?",
-      "id": "52fac36f-f7f2-544c-bd63-bc0e451b996a",
+      "name": "Token valid?",
+      "id": "c49249d2-c87e-596e-85f0-34ea1a5c707f",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
@@ -88,8 +88,8 @@
           "responseCode": 401
         }
       },
-      "name": "Respond 401",
-      "id": "ba6a1ea3-fe90-5398-93f7-0e1b80b197fd",
+      "name": "Reply 401: invalid token",
+      "id": "1737bbe5-f5f8-59a8-b59d-0cfdab760782",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
@@ -99,10 +99,10 @@
     },
     {
       "parameters": {
-        "jsCode": "// Only the four indicators of the proposal; at least one. Single mode needs a ticker.\nconst body = $('POST /ya-scan').first().json.body ?? {};\nconst ALLOWED = ['rsi', 'macd', 'ma_trend', 'volume'];\nconst errors = [];\nconst mode = body.mode === 'single' ? 'single' : 'rank';\nconst indicators = [...new Set((Array.isArray(body.indicators) ? body.indicators : [])\n  .map(x => String(x).toLowerCase()).filter(x => ALLOWED.includes(x)))];\nif (!indicators.length) errors.push(`indicators: choose at least one of ${ALLOWED.join(', ')}`);\nconst symbol = String(body.symbol ?? '').trim().toUpperCase().replace(/^\\$/, '');\nconst UNIVERSES = ['demo', 'dow30', 'nasdaq100', 'sp500', 'nyse'];\nconst universe = UNIVERSES.includes(body.universe) ? body.universe : 'demo';\nif (mode === 'single' && !/^[A-Z][A-Z0-9.\\-]{0,9}$/.test(symbol)) errors.push('symbol: enter a valid US ticker, e.g. AAPL');\nreturn [{ json: { valid: errors.length === 0, errors, mode, user_id: $('Auth user').first().json.user_id,\n  request_id: null, event_id: `scan-${$execution.id}`,\n  // top = whole universe: the page shows every ranked row (paged), the LLM sees the top 5.\n  analysis: { symbol: mode === 'single' ? symbol : null, indicators, universe, top: 3000 } } }];\n"
+        "jsCode": "// Only the four indicators of the proposal; at least one. Single mode needs a ticker.\nconst body = $('Trigger: Signal Lab scan (POST /ya-scan)').first().json.body ?? {};\nconst ALLOWED = ['rsi', 'macd', 'ma_trend', 'volume'];\nconst errors = [];\nconst mode = body.mode === 'single' ? 'single' : 'rank';\nconst indicators = [...new Set((Array.isArray(body.indicators) ? body.indicators : [])\n  .map(x => String(x).toLowerCase()).filter(x => ALLOWED.includes(x)))];\nif (!indicators.length) errors.push(`indicators: choose at least one of ${ALLOWED.join(', ')}`);\nconst symbol = String(body.symbol ?? '').trim().toUpperCase().replace(/^\\$/, '');\nconst UNIVERSES = ['demo', 'dow30', 'nasdaq100', 'sp500', 'nyse'];\nconst universe = UNIVERSES.includes(body.universe) ? body.universe : 'demo';\nif (mode === 'single' && !/^[A-Z][A-Z0-9.\\-]{0,9}$/.test(symbol)) errors.push('symbol: enter a valid US ticker, e.g. AAPL');\nreturn [{ json: { valid: errors.length === 0, errors, mode, user_id: $('DB: find user by token').first().json.user_id,\n  request_id: null, event_id: `scan-${$execution.id}`,\n  // top = whole universe: the page shows every ranked row (paged), the LLM sees the top 5.\n  analysis: { symbol: mode === 'single' ? symbol : null, indicators, universe, top: 3000 } } }];\n"
       },
-      "name": "Validate scan",
-      "id": "241d5f97-f258-5027-ba09-fee916213cb6",
+      "name": "Check scan settings",
+      "id": "61d01711-da3c-5d5e-8481-346276b1aea8",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -120,7 +120,7 @@
           },
           "conditions": [
             {
-              "id": "c380d389-87b1-5a03-bda6-2c1e97255c76",
+              "id": "3701e1ac-918a-5bad-be43-31700b7b92d6",
               "leftValue": "={{ $json.valid }}",
               "operator": {
                 "type": "boolean",
@@ -134,8 +134,8 @@
         "looseTypeValidation": true,
         "options": {}
       },
-      "name": "If: scan valid?",
-      "id": "da6fc518-598a-500a-996c-930d651c3bb7",
+      "name": "Scan settings OK?",
+      "id": "03aa7f78-cffe-52bf-ad0c-12966f1fb37e",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
@@ -151,8 +151,8 @@
           "responseCode": 400
         }
       },
-      "name": "Respond 400",
-      "id": "3adf7442-a4ac-528e-bb68-13016716b13d",
+      "name": "Reply 400: invalid scan",
+      "id": "2b7a052e-bfe7-5eb6-983f-f6f3a8927f14",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
@@ -230,8 +230,8 @@
         },
         "options": {}
       },
-      "name": "Analyse US stock",
-      "id": "2200d25a-39ed-5a1f-918a-2f6034bae5f7",
+      "name": "Run sub: analyse stocks",
+      "id": "dfbc1ee0-cabc-5d7c-852e-61e68ca2a414",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
@@ -247,8 +247,8 @@
           "responseCode": 200
         }
       },
-      "name": "Respond scan",
-      "id": "ac17740f-3175-5d53-84ae-f63032036f57",
+      "name": "Reply: ranked stocks",
+      "id": "88d264a0-10da-5b96-9882-e3fd300f4156",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
@@ -258,80 +258,80 @@
     }
   ],
   "connections": {
-    "POST /ya-scan": {
+    "Trigger: Signal Lab scan (POST /ya-scan)": {
       "main": [
         [
           {
-            "node": "Auth user",
+            "node": "DB: find user by token",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Auth user": {
+    "DB: find user by token": {
       "main": [
         [
           {
-            "node": "If: authenticated?",
+            "node": "Token valid?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "If: authenticated?": {
+    "Token valid?": {
       "main": [
         [
           {
-            "node": "Validate scan",
+            "node": "Check scan settings",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Respond 401",
+            "node": "Reply 401: invalid token",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Validate scan": {
+    "Check scan settings": {
       "main": [
         [
           {
-            "node": "If: scan valid?",
+            "node": "Scan settings OK?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "If: scan valid?": {
+    "Scan settings OK?": {
       "main": [
         [
           {
-            "node": "Analyse US stock",
+            "node": "Run sub: analyse stocks",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Respond 400",
+            "node": "Reply 400: invalid scan",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Analyse US stock": {
+    "Run sub: analyse stocks": {
       "main": [
         [
           {
-            "node": "Respond scan",
+            "node": "Reply: ranked stocks",
             "type": "main",
             "index": 0
           }

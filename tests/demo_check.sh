@@ -35,7 +35,7 @@ if [ -n "$loaded" ] && ! grep -qi "${YA_LLM_MODEL%%-instruct*}" <<<"$loaded"; th
 fi
 
 echo "Workflows"
-active=$(docker compose exec -T n8n n8n list:workflow --active=true 2>/dev/null | grep -c '|YA –')
+active=$(docker compose exec -T n8n n8n list:workflow --active=true 2>/dev/null | grep -c '|YA [0-9] –')
 [ "$active" -ge 9 ] && ok "$active YA workflows published" || bad "only $active of 9 YA workflows published" "workflows/deploy.sh"
 dash=$(curl -s --max-time 15 http://localhost:3500/ya/dashboard)
 grep -q '"ok":\s*true\|"ok": true' <<<"$dash" && ok "dashboard webhook answers" || bad "dashboard webhook failed" "workflows/deploy.sh, then check n8n executions"
@@ -49,7 +49,7 @@ read -r nw stale unpriced <<<"$(psql_q "select round(net_worth::numeric, 2), fx_
 [ "${stale:-0}" = 0 ] && ok "FX rates fresh" || warn "$stale items use stale FX" "run the FX refresh: curl -X POST localhost:5678/webhook/ya-refresh -H 'X-YA-Token: $TOKEN'"
 [ "${unpriced:-0}" = 0 ] && ok "every item priced" || warn "$unpriced items have no price" "check the watchlist/holdings symbols"
 age=$(psql_q "select round(extract(epoch from now() - max(fetched_at)) / 60) from quote")
-[ -n "$age" ] && [ "${age%.*}" -le 30 ] && ok "quotes updated ${age%.*} min ago" || warn "quotes are ${age:-?} min old" "the 10 s refresh is not running: check YA – Valuation refresh"
+[ -n "$age" ] && [ "${age%.*}" -le 30 ] && ok "quotes updated ${age%.*} min ago" || warn "quotes are ${age:-?} min old" "the 10 s refresh is not running: check YA 8 – Refresh prices and exchange rates"
 q=$(curl -s --max-time 10 "http://localhost:3500/api/quote?symbol=AAPL")
 grep -q '"ok": *true' <<<"$q" && ok "Yahoo quotes reachable" || warn "Yahoo quote proxy failed" "network/Yahoo rate limit; prices stay at the last values"
 errs=$(psql_q "select count(*) from error_log where created_at > now() - interval '1 hour'")

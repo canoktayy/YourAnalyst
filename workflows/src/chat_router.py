@@ -1,4 +1,4 @@
-"""YA – Chat router: POST /webhook/ya-chat {event_id, text} from the dashboard chat panel.
+"""YA 1 – Chat: understand and route a message: POST /webhook/ya-chat {event_id, text} from the dashboard chat panel.
 
 auth -> validate -> register event_id (replay => stored reply, no second write)
      -> pending yes/no handled without the LLM
@@ -9,7 +9,7 @@ auth -> validate -> register event_id (replay => stored reply, no second write)
 from lib import (WORDING_CHECK_JS, IS_TRUE, NOT_EMPTY, auth, call_workflow, chat_model, code, connect, connect_ai,
                  if_node, llm_chain, respond, sql, switch, webhook, write)
 
-VALIDATE_MESSAGE = r"""const b = $('POST /ya-chat').first().json.body ?? {};
+VALIDATE_MESSAGE = r"""const b = $('Trigger: chat message (POST /ya-chat)').first().json.body ?? {};
 const event_id = String(b.event_id ?? '');
 const text = String(b.text ?? '').trim();
 const errors = [];
@@ -30,7 +30,7 @@ select (select id from ins) as request_id, r.status as prior_status, r.response 
 from j
 left join request_log r on r.user_id = (j.j->>'user_id')::uuid and r.event_id = j.j->>'event_id';"""
 
-REPLAY = r"""const m = $('Validate message').first().json;
+REPLAY = r"""const m = $('Check message format').first().json;
 const r = $json;
 if (r.prior_response) return [{ json: { ...r.prior_response, replayed: true } }];
 return [{ json: { ok: true, replayed: true, status: r.prior_status, intent: null, data: null,
@@ -67,8 +67,8 @@ select (
      where d.user_id = u.id and d.updated_at > now() - interval '20 minutes') as scan_draft;"""
 
 PRE_ROUTE = r"""// Deterministic routing for confirmation answers; everything else goes to the LLM.
-const m = $('Validate message').first().json;
-const request_id = $('Register request').first().json.request_id;
+const m = $('Check message format').first().json;
+const request_id = $('DB: log message (dedup by event_id)').first().json.request_id;
 const pending = $json.pending;
 const t = m.text.toLowerCase().replace(/[.!?\s]+$/, '');
 const YES = /^(yes|y|ok|okay|confirm|sure|save)$/;
@@ -169,7 +169,7 @@ What is my net worth in TRY? -> {"intent":"list","list":{"currency":"TRY"}}"""
 
 VALIDATE_AI = r"""// Validate the LLM's JSON. Anything missing or invalid becomes a clarifying question:
 // the LLM proposes, this code decides what is allowed to reach the database.
-const ctx = $('Pre-route').first().json;
+const ctx = $('Build AI input, detect yes/no').first().json;
 // Small models sometimes return several JSON objects back to back (one per item);
 // split them at the top level instead of failing on the whole string.
 const objects = [];
@@ -479,7 +479,7 @@ I always ask before saving a record. This is a tracking and research tool, not i
 
 # Layer 2 for every tool result: the tools compute; this LLM tells the user in its own
 # words. It sees the user's message and the tool's computed result (a plain-text draft
-# with all figures). "Check narration" rejects any number that is not in that result.
+# with all figures). "Check reply numbers (fallback)" rejects any number that is not in that result.
 NARRATE_SYSTEM = """You are YourAnalyst, the assistant of a personal-finance dashboard. The app has already done the work; you tell the user the result in your own words.
 Rules:
 - Use only facts and numbers that appear in RESULT. Copy numbers exactly as written there (same digits, same currency). Never calculate, round differently or add a number.
@@ -496,12 +496,12 @@ Rules:
 - Do not end with a question unless you need a confirmation or a missing detail. No "Is this what you wanted?"-style endings.
 - English only, plain text, at most 90 words; a short list only if there are more than four items to name."""
 
-NARRATE_INPUT = ("={{ 'USER MESSAGE: ' + $('Pre-route').first().json.text + '\\nTOOL: ' + $json.intent + "
+NARRATE_INPUT = ("={{ 'USER MESSAGE: ' + $('Build AI input, detect yes/no').first().json.text + '\\nTOOL: ' + $json.intent + "
                  "'\\nSTATUS: ' + $json.status + '\\nRESULT:\\n' + $json.reply }}")
 
 CHECK_NARRATION = WORDING_CHECK_JS + r"""// Keep the LLM's wording only if every number in it exists in the tool result (or the
 // user's message). Otherwise, or if the model failed, fall back to the tool's own text.
-const tool = $('Collect result').first().json;
+const tool = $('Collect tool result').first().json;
 // Tidy the model's wording: no markdown, and no trailing "Is this what you wanted?" when
 // nothing needs answering (only confirmations and clarifications may end in a question).
 let text = String($json.text ?? '').trim().replace(/\*\*(.+?)\*\*/g, '$1').replace(/^\s*[*-]\s+/gm, '• ');
@@ -524,7 +524,7 @@ if (!mayAsk) {
     text = cut;
   }
 }
-const source = String(tool.reply ?? '') + ' ' + $('Pre-route').first().json.text;
+const source = String(tool.reply ?? '') + ' ' + $('Build AI input, detect yes/no').first().json.text;
 // Numbers with their currency: "107,065.00 USD" in the result may not become "107,065 EUR".
 const MULT = { k: 1e3, thousand: 1e3, m: 1e6, million: 1e6, bn: 1e9, billion: 1e9 };
 const SYM = { '€': 'EUR', '$': 'USD', '£': 'GBP', '₺': 'TRY' };
@@ -584,12 +584,12 @@ returning user_id;"""
 
 DROP_DRAFT = """delete from scan_draft where user_id = ($1::jsonb->>'user_id')::uuid returning user_id;"""
 
-PREPARE_SCAN = r"""const c = $('Validate AI JSON').first().json;
+PREPARE_SCAN = r"""const c = $('Check AI JSON against the message').first().json;
 return [{ json: { mode: c.analysis.mode, user_id: c.user_id, request_id: c.request_id, event_id: c.event_id,
   analysis: c.analysis } }];
 """
 
-ASK_SCAN = r"""const c = $('Validate AI JSON').first().json;
+ASK_SCAN = r"""const c = $('Check AI JSON against the message').first().json;
 return [{ json: { intent: 'clarify', status: 'done', reply: c.question, data: { scan_draft: c.scan_draft } } }];
 """
 
@@ -617,7 +617,7 @@ select (select row_to_json(n) from v_net_worth n, j where n.user_id = j.user_id)
        coalesce((select json_agg(li order by li.category, li.label)
                  from v_line_item li, j where li.user_id = j.user_id), '[]'::json) as items;"""
 
-FORMAT_LIST = r"""const c = $('Validate AI JSON').first().json;
+FORMAT_LIST = r"""const c = $('Check AI JSON against the message').first().json;
 const money = (n, cur) => new Intl.NumberFormat('en-US',
   { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n)) + ' ' + cur;
 const { totals, items, usd_per_unit: fx } = $json;
@@ -643,138 +643,138 @@ FINISH = """update request_log set
 where id = ($1::jsonb->>'request_id')::uuid
 returning response;"""
 
-FINISH_PARAM = ("={{ JSON.stringify({ request_id: $('Pre-route').first().json.request_id, status: $json.status, "
-                "intent: $json.intent, response: { ok: true, event_id: $('Pre-route').first().json.event_id, "
+FINISH_PARAM = ("={{ JSON.stringify({ request_id: $('Build AI input, detect yes/no').first().json.request_id, status: $json.status, "
+                "intent: $json.intent, response: { ok: true, event_id: $('Build AI input, detect yes/no').first().json.event_id, "
                 "intent: $json.intent, status: $json.status, reply: $json.reply, data: $json.data ?? null } }) }}")
 
 nodes = [
-    webhook("POST /ya-chat", [0, 300], "POST", "ya-chat"),
-    auth("Auth user", [220, 300]),
-    if_node("If: authenticated?", [440, 300], "={{ $json.user_id }}", NOT_EMPTY),
-    respond("Respond 401", [660, 480], '={{ { "ok": false, "error": "Missing or invalid X-YA-Token" } }}', 401),
-    code("Validate message", [660, 280], VALIDATE_MESSAGE),
-    if_node("If: message valid?", [880, 280], "={{ $json.valid }}", IS_TRUE),
-    respond("Respond 400", [1100, 480], '={{ { "ok": false, "error": "Invalid message", "details": $json.errors } }}', 400),
-    sql("Register request", [1100, 260], REGISTER,
+    webhook("Trigger: chat message (POST /ya-chat)", [0, 300], "POST", "ya-chat"),
+    auth("DB: find user by token", [220, 300]),
+    if_node("Token valid?", [440, 300], "={{ $json.user_id }}", NOT_EMPTY),
+    respond("Reply 401: invalid token", [660, 480], '={{ { "ok": false, "error": "Missing or invalid X-YA-Token" } }}', 401),
+    code("Check message format", [660, 280], VALIDATE_MESSAGE),
+    if_node("Message format OK?", [880, 280], "={{ $json.valid }}", IS_TRUE),
+    respond("Reply 400: invalid message", [1100, 480], '={{ { "ok": false, "error": "Invalid message", "details": $json.errors } }}', 400),
+    sql("DB: log message (dedup by event_id)", [1100, 260], REGISTER,
         "={{ JSON.stringify({ ...$json, execution_id: $execution.id }) }}"),
-    if_node("If: new event?", [1320, 260], "={{ $json.request_id }}", NOT_EMPTY),
-    code("Replay stored reply", [1540, 460], REPLAY),
-    respond("Respond replay", [1760, 460], "={{ $json }}"),
+    if_node("New message, not a duplicate?", [1320, 260], "={{ $json.request_id }}", NOT_EMPTY),
+    code("Get stored reply of duplicate", [1540, 460], REPLAY),
+    respond("Reply: stored answer again", [1760, 460], "={{ $json }}"),
 
-    sql("Load context", [1540, 240], LOAD_CONTEXT,
-        "={{ JSON.stringify({ user_id: $('Validate message').first().json.user_id }) }}"),
-    code("Pre-route", [1760, 240], PRE_ROUTE),
-    switch("Switch: route", [1980, 240], "={{ $json.route }}",
+    sql("DB: load chat memory and context", [1540, 240], LOAD_CONTEXT,
+        "={{ JSON.stringify({ user_id: $('Check message format').first().json.user_id }) }}"),
+    code("Build AI input, detect yes/no", [1760, 240], PRE_ROUTE),
+    switch("Route: yes / no / new request", [1980, 240], "={{ $json.route }}",
            [("ai", "ai"), ("confirm", "confirm"), ("cancel", "cancel"), ("no_pending", "no_pending")]),
 
-    llm_chain("Parse request (AI)", [2220, 40], PARSE_SYSTEM, "={{ $json.llm_input }}",
+    llm_chain("AI 1: choose the tool (JSON)", [2220, 40], PARSE_SYSTEM, "={{ $json.llm_input }}",
               onError="continueRegularOutput", alwaysOutputData=True),
-    chat_model("Chat model (parse)", [2220, 260]),
-    code("Validate AI JSON", [2460, 40], VALIDATE_AI),
-    switch("Switch: intent", [2700, 40], "={{ $json.intent }}",
+    chat_model("LLM for AI 1", [2220, 260]),
+    code("Check AI JSON against the message", [2460, 40], VALIDATE_AI),
+    switch("Route by intent", [2700, 40], "={{ $json.intent }}",
            [("record", "record"), ("analyse", "analyse"), ("rank", "rank"),
             ("list", "list"), ("help", "help"), ("clarify", "clarify"), ("watchlist", "watchlist"),
             ("sell", "sell"), ("question", "question"), ("what_if", "what_if"), ("chat", "chat"),
             ("scan", "scan"), ("scan_ask", "scan_ask"), ("scan_cancel", "scan_cancel")]),
 
-    code("Prepare record", [2960, -160], TO_SUB),
-    call_workflow("Record financial entry", [3200, -60], "YArecordEntry001"),
-    code("Prepare analysis", [2960, 40], TO_SUB),
-    call_workflow("Analyse US stock", [3200, 40], "YAanalyseStock01"),
-    sql("List records", [2960, 220], LIST, "={{ JSON.stringify({ user_id: $json.user_id }) }}"),
-    code("Format list", [3200, 220], FORMAT_LIST),
-    code("Direct reply", [3200, 400], DIRECT_REPLY),
-    llm_chain("Chat reply (AI)", [2960, 920], CHAT_SYSTEM, "={{ $('Pre-route').first().json.text }}",
+    code("Prepare record input", [2960, -160], TO_SUB),
+    call_workflow("Run sub: save financial record", [3200, -160], "YArecordEntry001"),
+    code("Prepare analysis input", [2960, 40], TO_SUB),
+    call_workflow("Run sub: analyse stocks", [3200, 40], "YAanalyseStock01"),
+    sql("DB: list accounts, debts, stocks", [2960, 220], LIST, "={{ JSON.stringify({ user_id: $json.user_id }) }}"),
+    code("Format the list", [3200, 220], FORMAT_LIST),
+    code("Reply text for help / clarify", [3200, 400], DIRECT_REPLY),
+    llm_chain("AI: small-talk reply", [2960, 920], CHAT_SYSTEM, "={{ $('Build AI input, detect yes/no').first().json.text }}",
               onError="continueRegularOutput", alwaysOutputData=True),
-    chat_model("Chat model (chat)", [2960, 1120], temperature=0.6),
-    code("Format chat reply", [3200, 920], FORMAT_CHAT),
-    code("Prepare watchlist", [2960, 560], TO_SUB),
-    code("Prepare question", [2960, 740], TO_SUB),
-    call_workflow("Answer question", [3200, 740], "YAanswerQuest001"),
-    call_workflow("Update watchlist", [3200, 560], "YAwatchlist00001"),
-    code("Prepare confirmation", [2220, 440], TO_SUB),
+    chat_model("LLM for small talk", [2960, 1120], temperature=0.6),
+    code("Format small-talk reply", [3200, 920], FORMAT_CHAT),
+    code("Prepare watchlist input", [2960, 560], TO_SUB),
+    code("Prepare question input", [2960, 740], TO_SUB),
+    call_workflow("Run sub: answer question", [3200, 740], "YAanswerQuest001"),
+    call_workflow("Run sub: update watchlist", [3200, 560], "YAwatchlist00001"),
+    code("Prepare yes/no for pending record", [2220, 440], TO_SUB),
 
     # Signal Lab in the chat (scan): complete -> run; incomplete -> save the draft and ask.
-    sql("Clear scan draft", [2960, 1300], DROP_DRAFT, "={{ JSON.stringify({ user_id: $json.user_id }) }}",
+    sql("DB: clear finished scan draft", [2960, 1300], DROP_DRAFT, "={{ JSON.stringify({ user_id: $json.user_id }) }}",
         alwaysOutputData=True),
-    code("Prepare scan", [3200, 1300], PREPARE_SCAN),
-    sql("Save scan draft", [2960, 1480], SAVE_DRAFT,
+    code("Prepare scan input", [3200, 1300], PREPARE_SCAN),
+    sql("DB: save unfinished scan", [2960, 1480], SAVE_DRAFT,
         "={{ JSON.stringify({ user_id: $json.user_id, d: $json.scan_draft }) }}"),
-    code("Ask scan question", [3200, 1480], ASK_SCAN),
-    sql("Drop scan draft", [2960, 1660], DROP_DRAFT, "={{ JSON.stringify({ user_id: $json.user_id }) }}",
+    code("Ask what the scan still needs", [3200, 1480], ASK_SCAN),
+    sql("DB: delete cancelled scan", [2960, 1660], DROP_DRAFT, "={{ JSON.stringify({ user_id: $json.user_id }) }}",
         alwaysOutputData=True),
-    code("Scan cancelled", [3200, 1660], SCAN_CANCELLED),
+    code("Reply: scan cancelled", [3200, 1660], SCAN_CANCELLED),
 
-    code("Collect result", [3460, 160], "return $input.all();   // every tool result passes through here"),
-    llm_chain("Narrate reply (AI)", [3680, 160], NARRATE_SYSTEM, NARRATE_INPUT,
+    code("Collect tool result", [3460, 160], "return $input.all();   // every tool result passes through here"),
+    llm_chain("AI 2: write the reply", [3680, 160], NARRATE_SYSTEM, NARRATE_INPUT,
               onError="continueRegularOutput", alwaysOutputData=True),
-    chat_model("Chat model (narrate)", [3680, 380], temperature=0.4),
-    code("Check narration", [3900, 160], CHECK_NARRATION),
-    sql("Finish request", [4120, 160], FINISH, FINISH_PARAM),
-    respond("Respond reply", [4340, 160], "={{ $json.response }}"),
+    chat_model("LLM for AI 2", [3680, 380], temperature=0.4),
+    code("Check reply numbers (fallback)", [3900, 160], CHECK_NARRATION),
+    sql("DB: save reply, mark done", [4120, 160], FINISH, FINISH_PARAM),
+    respond("Reply to chat", [4340, 160], "={{ $json.response }}"),
 ]
 
 connections = connect(
-    ("POST /ya-chat", "Auth user"),
-    ("Auth user", "If: authenticated?"),
-    ("If: authenticated?", "Validate message", 0),
-    ("If: authenticated?", "Respond 401", 1),
-    ("Validate message", "If: message valid?"),
-    ("If: message valid?", "Register request", 0),
-    ("If: message valid?", "Respond 400", 1),
-    ("Register request", "If: new event?"),
-    ("If: new event?", "Load context", 0),
-    ("If: new event?", "Replay stored reply", 1),
-    ("Replay stored reply", "Respond replay"),
-    ("Load context", "Pre-route"),
-    ("Pre-route", "Switch: route"),
-    ("Switch: route", "Parse request (AI)", 0),
-    ("Switch: route", "Prepare confirmation", 1),
-    ("Switch: route", "Prepare confirmation", 2),
-    ("Switch: route", "Direct reply", 3),
-    ("Parse request (AI)", "Validate AI JSON"),
-    ("Validate AI JSON", "Switch: intent"),
-    ("Switch: intent", "Prepare record", 0),
-    ("Switch: intent", "Prepare analysis", 1),
-    ("Switch: intent", "Prepare analysis", 2),
-    ("Switch: intent", "List records", 3),
-    ("Switch: intent", "Direct reply", 4),
-    ("Switch: intent", "Chat reply (AI)", 10),
-    ("Switch: intent", "Clear scan draft", 11),
-    ("Clear scan draft", "Prepare scan"),
-    ("Prepare scan", "Analyse US stock"),
-    ("Switch: intent", "Save scan draft", 12),
-    ("Save scan draft", "Ask scan question"),
-    ("Ask scan question", "Collect result"),
-    ("Switch: intent", "Drop scan draft", 13),
-    ("Drop scan draft", "Scan cancelled"),
-    ("Scan cancelled", "Collect result"),
-    ("Chat reply (AI)", "Format chat reply"),
-    ("Format chat reply", "Finish request"),
-    ("Collect result", "Narrate reply (AI)"),
-    ("Narrate reply (AI)", "Check narration"),
-    ("Check narration", "Finish request"),
-    ("Switch: intent", "Direct reply", 5),
-    ("Switch: intent", "Prepare watchlist", 6),
-    ("Switch: intent", "Prepare record", 7),
-    ("Switch: intent", "Prepare question", 8),
-    ("Switch: intent", "Prepare question", 9),
-    ("Prepare question", "Answer question"),
-    ("Answer question", "Collect result"),
-    ("Prepare watchlist", "Update watchlist"),
-    ("Update watchlist", "Collect result"),
-    ("Prepare record", "Record financial entry"),
-    ("Prepare confirmation", "Record financial entry"),
-    ("Prepare analysis", "Analyse US stock"),
-    ("List records", "Format list"),
-    ("Record financial entry", "Collect result"),
-    ("Analyse US stock", "Collect result"),
-    ("Format list", "Collect result"),
-    ("Direct reply", "Collect result"),
-    ("Finish request", "Respond reply"),
+    ("Trigger: chat message (POST /ya-chat)", "DB: find user by token"),
+    ("DB: find user by token", "Token valid?"),
+    ("Token valid?", "Check message format", 0),
+    ("Token valid?", "Reply 401: invalid token", 1),
+    ("Check message format", "Message format OK?"),
+    ("Message format OK?", "DB: log message (dedup by event_id)", 0),
+    ("Message format OK?", "Reply 400: invalid message", 1),
+    ("DB: log message (dedup by event_id)", "New message, not a duplicate?"),
+    ("New message, not a duplicate?", "DB: load chat memory and context", 0),
+    ("New message, not a duplicate?", "Get stored reply of duplicate", 1),
+    ("Get stored reply of duplicate", "Reply: stored answer again"),
+    ("DB: load chat memory and context", "Build AI input, detect yes/no"),
+    ("Build AI input, detect yes/no", "Route: yes / no / new request"),
+    ("Route: yes / no / new request", "AI 1: choose the tool (JSON)", 0),
+    ("Route: yes / no / new request", "Prepare yes/no for pending record", 1),
+    ("Route: yes / no / new request", "Prepare yes/no for pending record", 2),
+    ("Route: yes / no / new request", "Reply text for help / clarify", 3),
+    ("AI 1: choose the tool (JSON)", "Check AI JSON against the message"),
+    ("Check AI JSON against the message", "Route by intent"),
+    ("Route by intent", "Prepare record input", 0),
+    ("Route by intent", "Prepare analysis input", 1),
+    ("Route by intent", "Prepare analysis input", 2),
+    ("Route by intent", "DB: list accounts, debts, stocks", 3),
+    ("Route by intent", "Reply text for help / clarify", 4),
+    ("Route by intent", "AI: small-talk reply", 10),
+    ("Route by intent", "DB: clear finished scan draft", 11),
+    ("DB: clear finished scan draft", "Prepare scan input"),
+    ("Prepare scan input", "Run sub: analyse stocks"),
+    ("Route by intent", "DB: save unfinished scan", 12),
+    ("DB: save unfinished scan", "Ask what the scan still needs"),
+    ("Ask what the scan still needs", "Collect tool result"),
+    ("Route by intent", "DB: delete cancelled scan", 13),
+    ("DB: delete cancelled scan", "Reply: scan cancelled"),
+    ("Reply: scan cancelled", "Collect tool result"),
+    ("AI: small-talk reply", "Format small-talk reply"),
+    ("Format small-talk reply", "DB: save reply, mark done"),
+    ("Collect tool result", "AI 2: write the reply"),
+    ("AI 2: write the reply", "Check reply numbers (fallback)"),
+    ("Check reply numbers (fallback)", "DB: save reply, mark done"),
+    ("Route by intent", "Reply text for help / clarify", 5),
+    ("Route by intent", "Prepare watchlist input", 6),
+    ("Route by intent", "Prepare record input", 7),
+    ("Route by intent", "Prepare question input", 8),
+    ("Route by intent", "Prepare question input", 9),
+    ("Prepare question input", "Run sub: answer question"),
+    ("Run sub: answer question", "Collect tool result"),
+    ("Prepare watchlist input", "Run sub: update watchlist"),
+    ("Run sub: update watchlist", "Collect tool result"),
+    ("Prepare record input", "Run sub: save financial record"),
+    ("Prepare yes/no for pending record", "Run sub: save financial record"),
+    ("Prepare analysis input", "Run sub: analyse stocks"),
+    ("DB: list accounts, debts, stocks", "Format the list"),
+    ("Run sub: save financial record", "Collect tool result"),
+    ("Run sub: analyse stocks", "Collect tool result"),
+    ("Format the list", "Collect tool result"),
+    ("Reply text for help / clarify", "Collect tool result"),
+    ("DB: save reply, mark done", "Reply to chat"),
 )
-connect_ai(connections, "Chat model (parse)", "Parse request (AI)")
-connect_ai(connections, "Chat model (chat)", "Chat reply (AI)")
-connect_ai(connections, "Chat model (narrate)", "Narrate reply (AI)")
+connect_ai(connections, "LLM for AI 1", "AI 1: choose the tool (JSON)")
+connect_ai(connections, "LLM for small talk", "AI: small-talk reply")
+connect_ai(connections, "LLM for AI 2", "AI 2: write the reply")
 
-write("chat_router", "YAchatRouter0001", "YA – Chat router", nodes, connections)
+write("chat_router", "YAchatRouter0001", "YA 1 – Chat: understand and route a message", nodes, connections)

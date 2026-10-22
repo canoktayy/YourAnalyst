@@ -1,4 +1,4 @@
-"""YA – Answer question (sub-workflow, called by the chat router).
+"""YA 5 – Sub: answer a question about my money (sub-workflow, called by the chat router).
 
 Input item: {user_id, request_id, event_id, mode: question|what_if,
              question: {text, scenario: [{symbol, price|null, change_pct|null}]}}
@@ -38,7 +38,7 @@ select
       from v_line_item li, u where li.user_id = u.id and li.category = 'liability'), '[]'::json) as liabilities;"""
 
 COMPUTE = r"""// Every number the answer may use is computed here; the LLM gets only these facts.
-const start = $('Start').first().json;
+const start = $('Input: question').first().json;
 const snap = $json;
 const base = snap.base_currency;
 const r2 = n => Math.round(Number(n) * 100) / 100;
@@ -170,7 +170,7 @@ CHECK = r"""// Number check: every number in the LLM's text must exist in FACTS 
 // and an amount written with a currency must have that currency in FACTS (a USD value
 // called "EUR" is rejected). Allowed tolerance follows what was written: "2,130,335" may
 // round to an integer, "45.3%" to one decimal. Anything else means the model invented a value.
-const c = $('Compute answer').first().json;
+const c = $('Compute answer in code').first().json;
 const text = String($json.text ?? '').trim();
 
 const allowed = c.amounts.map(([v, cur]) => [v, cur]);             // amounts with their currency
@@ -209,22 +209,22 @@ return [{ json: {
 """
 
 nodes = [
-    sub_trigger("Start", [0, 200], "YAanswerQuest001"),
-    sql("Portfolio snapshot", [220, 200], SNAPSHOT, "={{ JSON.stringify({ user_id: $json.user_id }) }}"),
-    code("Compute answer", [460, 200], COMPUTE),
-    llm_chain("Explain answer", [700, 200], EXPLAIN_SYSTEM,
+    sub_trigger("Input: question", [0, 200], "YAanswerQuest001"),
+    sql("DB: portfolio snapshot", [220, 200], SNAPSHOT, "={{ JSON.stringify({ user_id: $json.user_id }) }}"),
+    code("Compute answer in code", [460, 200], COMPUTE),
+    llm_chain("AI: word the answer", [700, 200], EXPLAIN_SYSTEM,
               "={{ 'QUESTION: ' + $json.question + '\\n\\nFACTS: ' + JSON.stringify($json.llm_facts) }}",
               onError="continueRegularOutput", alwaysOutputData=True),
-    chat_model("Chat model (answer)", [700, 420], temperature=0.2),
-    code("Check numbers", [960, 200], CHECK),
+    chat_model("LLM for answer", [700, 420], temperature=0.2),
+    code("Check answer numbers (fallback)", [960, 200], CHECK),
 ]
 
 connections = connect(
-    ("Start", "Portfolio snapshot"),
-    ("Portfolio snapshot", "Compute answer"),
-    ("Compute answer", "Explain answer"),
-    ("Explain answer", "Check numbers"),
+    ("Input: question", "DB: portfolio snapshot"),
+    ("DB: portfolio snapshot", "Compute answer in code"),
+    ("Compute answer in code", "AI: word the answer"),
+    ("AI: word the answer", "Check answer numbers (fallback)"),
 )
-connect_ai(connections, "Chat model (answer)", "Explain answer")
+connect_ai(connections, "LLM for answer", "AI: word the answer")
 
-write("answer_question", "YAanswerQuest001", "YA – Answer question", nodes, connections)
+write("answer_question", "YAanswerQuest001", "YA 5 – Sub: answer a question about my money", nodes, connections)

@@ -1,4 +1,4 @@
-"""YA – Analyse US stock (sub-workflow).
+"""YA 3 – Sub: analyse stocks with indicators (sub-workflow).
 
 Input item: {mode: single|rank, user_id, request_id, event_id, analysis: {symbol, indicators, top}}
 Output item: {reply, status: done|failed, intent, data}
@@ -19,7 +19,7 @@ def api_call(name, position, path, body_expr, timeout=60000):
     }, onError="continueErrorOutput", **RETRY)
 
 NORMALISE = RULE_LABELS_JS + r"""// Compact, numbers-only facts for the LLM and the reply (no raw API noise).
-const ctx = $('Start').first().json;
+const ctx = $('Input: one stock or a ranking').first().json;
 const r = $json;
 const ind = i => Object.fromEntries(Object.entries(i).map(([k, v]) =>
   [k, v.available ? { value: v.value, contribution: v.contribution, label: RULE_LABELS[k]?.[String(v.contribution)] ?? v.reason,
@@ -59,7 +59,7 @@ EXPLAIN_SYSTEM = (
     "Write in English. At most 120 words, plain text, no headings."
 )
 
-REPLY = WORDING_CHECK_JS + r"""const ctx = $('Normalise result').first().json;
+REPLY = WORDING_CHECK_JS + r"""const ctx = $('Shape API result').first().json;
 const f = ctx.facts;
 const n = (v, d = 2) => v == null ? '—' : new Intl.NumberFormat('en-US',
   { minimumFractionDigits: d, maximumFractionDigits: d }).format(v);
@@ -130,7 +130,7 @@ from (select $1::jsonb as r) x
 returning id;"""
 
 DESCRIBE_FAILURE = r"""// HTTP node error output, after its retries.
-const ctx = $('Start').first().json;
+const ctx = $('Input: one stock or a ranking').first().json;
 const e = $json.error ?? {};
 const msg = String(e.message ?? e.description ?? JSON.stringify(e)).slice(0, 500);
 const code = Number(e.httpCode ?? (msg.match(/^(\d{3})\b/) ?? [])[1]);
@@ -142,7 +142,7 @@ else reply = 'The analysis service is unavailable right now (tried 3 times). Ple
 return [{ json: {
   intent: ctx.mode === 'rank' ? 'rank' : 'analyse', status: code === 404 || code === 400 ? 'done' : 'failed',
   reply, data: { error: msg, http_code: code || null },
-  log: { workflow_name: $workflow.name, node_name: ctx.mode === 'rank' ? 'Rank API' : 'Analyse API',
+  log: { workflow_name: $workflow.name, node_name: ctx.mode === 'rank' ? 'API: score and rank stocks' : 'API: analyse one stock',
          execution_id: $execution.id, event_id: ctx.event_id, message: msg },
 } }];
 """
@@ -153,50 +153,50 @@ from (select $1::jsonb as l) x
 returning id;"""
 
 nodes = [
-    sub_trigger("Start", [0, 200], "YAanalyseStock01"),
-    switch("Switch: mode", [220, 200], "={{ $json.mode }}", [("single", "single"), ("rank", "rank")]),
-    api_call("Analyse API", [460, 80], "/analyze",
+    sub_trigger("Input: one stock or a ranking", [0, 200], "YAanalyseStock01"),
+    switch("Route: one stock or ranking", [220, 200], "={{ $json.mode }}", [("single", "single"), ("rank", "rank")]),
+    api_call("API: analyse one stock", [460, 80], "/analyze",
              "={{ JSON.stringify({ symbol: $json.analysis.symbol, indicators: $json.analysis.indicators }) }}"),
-    sql("Universe", [460, 320],
+    sql("DB: stocks in chosen universe", [460, 320],
         "select json_agg(symbol order by symbol) as symbols from universe_member\n"
         "where universe = coalesce(nullif($1::jsonb->>'universe', ''), 'demo');",
         "={{ JSON.stringify({ universe: $json.analysis.universe ?? 'demo' }) }}"),
-    api_call("Rank API", [680, 320], "/rank",
-             "={{ JSON.stringify({ symbols: $json.symbols, indicators: $('Start').first().json.analysis.indicators, "
-             "top: $('Start').first().json.analysis.top }) }}", timeout=900000),
-    code("Normalise result", [920, 160], NORMALISE),
-    llm_chain("Explain results", [1140, 160], EXPLAIN_SYSTEM, "={{ JSON.stringify($json.llm_facts ?? $json.facts) }}",
+    api_call("API: score and rank stocks", [680, 320], "/rank",
+             "={{ JSON.stringify({ symbols: $json.symbols, indicators: $('Input: one stock or a ranking').first().json.analysis.indicators, "
+             "top: $('Input: one stock or a ranking').first().json.analysis.top }) }}", timeout=900000),
+    code("Shape API result", [920, 160], NORMALISE),
+    llm_chain("AI: explain top results", [1140, 160], EXPLAIN_SYSTEM, "={{ JSON.stringify($json.llm_facts ?? $json.facts) }}",
               onError="continueRegularOutput", alwaysOutputData=True),
-    chat_model("Chat model (explain)", [1140, 380], temperature=0.2),
-    code("Analysis reply", [1380, 160], REPLY),
-    sql("Save analysis", [1600, 160], SAVE, "={{ JSON.stringify($json.row) }}"),
-    code("Return reply", [1820, 160],
-         "const r = $('Analysis reply').first().json;\n"
+    chat_model("LLM for explanation", [1140, 380], temperature=0.2),
+    code("Build analysis reply", [1380, 160], REPLY),
+    sql("DB: save analysis", [1600, 160], SAVE, "={{ JSON.stringify($json.row) }}"),
+    code("Return result to caller", [1820, 160],
+         "const r = $('Build analysis reply').first().json;\n"
          "return [{ json: { intent: r.intent, status: r.status, reply: r.reply, data: { ...r.data, analysis_id: $json.id } } }];"),
 
-    code("Describe failure", [920, 520], DESCRIBE_FAILURE),
-    sql("Log failure", [1140, 520], LOG_FAILURE, "={{ JSON.stringify($json.log) }}"),
-    code("Failure reply", [1380, 520],
-         "const r = $('Describe failure').first().json;\n"
+    code("Describe API failure", [920, 520], DESCRIBE_FAILURE),
+    sql("DB: log API failure", [1140, 520], LOG_FAILURE, "={{ JSON.stringify($json.log) }}"),
+    code("Reply: analysis unavailable", [1380, 520],
+         "const r = $('Describe API failure').first().json;\n"
          "return [{ json: { intent: r.intent, status: r.status, reply: r.reply, data: { ...r.data, error_log_id: $json.id } } }];"),
 ]
 
 connections = connect(
-    ("Start", "Switch: mode"),
-    ("Switch: mode", "Analyse API", 0),
-    ("Switch: mode", "Universe", 1),
-    ("Universe", "Rank API"),
-    ("Analyse API", "Normalise result", 0),
-    ("Analyse API", "Describe failure", 1),
-    ("Rank API", "Normalise result", 0),
-    ("Rank API", "Describe failure", 1),
-    ("Normalise result", "Explain results"),
-    ("Explain results", "Analysis reply"),
-    ("Analysis reply", "Save analysis"),
-    ("Save analysis", "Return reply"),
-    ("Describe failure", "Log failure"),
-    ("Log failure", "Failure reply"),
+    ("Input: one stock or a ranking", "Route: one stock or ranking"),
+    ("Route: one stock or ranking", "API: analyse one stock", 0),
+    ("Route: one stock or ranking", "DB: stocks in chosen universe", 1),
+    ("DB: stocks in chosen universe", "API: score and rank stocks"),
+    ("API: analyse one stock", "Shape API result", 0),
+    ("API: analyse one stock", "Describe API failure", 1),
+    ("API: score and rank stocks", "Shape API result", 0),
+    ("API: score and rank stocks", "Describe API failure", 1),
+    ("Shape API result", "AI: explain top results"),
+    ("AI: explain top results", "Build analysis reply"),
+    ("Build analysis reply", "DB: save analysis"),
+    ("DB: save analysis", "Return result to caller"),
+    ("Describe API failure", "DB: log API failure"),
+    ("DB: log API failure", "Reply: analysis unavailable"),
 )
-connect_ai(connections, "Chat model (explain)", "Explain results")
+connect_ai(connections, "LLM for explanation", "AI: explain top results")
 
-write("analyse_stock", "YAanalyseStock01", "YA – Analyse US stock", nodes, connections)
+write("analyse_stock", "YAanalyseStock01", "YA 3 – Sub: analyse stocks with indicators", nodes, connections)

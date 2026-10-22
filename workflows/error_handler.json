@@ -1,12 +1,12 @@
 {
   "id": "YAerrorHandler01",
-  "name": "YA – Error handler",
+  "name": "YA 9 – Error handler: log every failure",
   "active": false,
   "nodes": [
     {
       "parameters": {},
-      "name": "On workflow error",
-      "id": "b1dbb31f-f002-5203-9708-b1d1a8442ade",
+      "name": "Trigger: any YA workflow failed",
+      "id": "e02874da-6f74-5149-af8e-43c69ecd0e47",
       "type": "n8n-nodes-base.errorTrigger",
       "typeVersion": 1,
       "position": [
@@ -18,8 +18,8 @@
       "parameters": {
         "jsCode": "// Error Trigger payload: { execution: { id, url, error, lastNodeExecuted, mode }, workflow: { id, name } }\n// A trigger-level failure has { trigger: { error } } and no execution id.\nconst e = $json;\nconst err = e.execution?.error ?? e.trigger?.error ?? {};\nconst message = String(err.message ?? 'Unknown error').slice(0, 2000)\n  + (err.description ? ` (${String(err.description).slice(0, 500)})` : '');\nconst workflow_name = e.workflow?.name ?? null;\nconst node_name = e.execution?.lastNodeExecuted ?? err.node?.name ?? null;\nconst execution_id = e.execution?.id != null ? String(e.execution.id) : null;\n// n8n fills execution.url from N8N_EDITOR_BASE_URL; build it ourselves if it is missing.\nconst execution_url = e.execution?.url\n  ?? (execution_id && e.workflow?.id ? `${$env.N8N_EDITOR_BASE_URL || 'http://localhost:5678'}/workflow/${e.workflow.id}/executions/${execution_id}` : null);\n// One-line alert, stored in error_log and shown by tests/demo_check.sh.\nconst alert = `${workflow_name ?? 'Unknown workflow'} failed at \"${node_name ?? '?'}\": ${message.slice(0, 200)} | ${execution_url ?? 'no execution URL'}`;\nreturn [{ json: { workflow_name, node_name, execution_id, execution_url, alert, message } }];\n"
       },
-      "name": "Describe error",
-      "id": "dc2bee56-eca7-50f2-9443-26449f990abe",
+      "name": "Build alert (name, node, URL)",
+      "id": "dda5d161-d67d-5e01-92a5-40f2b2bcb476",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -35,8 +35,8 @@
           "queryReplacement": "={{ JSON.stringify($json) }}"
         }
       },
-      "name": "Log error + fail request",
-      "id": "b5c6953c-a189-532c-b312-596324dbee23",
+      "name": "DB: log alert, mark request failed",
+      "id": "d238bd90-5933-5783-8cc9-8552074e0447",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -55,22 +55,22 @@
     }
   ],
   "connections": {
-    "On workflow error": {
+    "Trigger: any YA workflow failed": {
       "main": [
         [
           {
-            "node": "Describe error",
+            "node": "Build alert (name, node, URL)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Describe error": {
+    "Build alert (name, node, URL)": {
       "main": [
         [
           {
-            "node": "Log error + fail request",
+            "node": "DB: log alert, mark request failed",
             "type": "main",
             "index": 0
           }

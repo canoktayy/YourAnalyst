@@ -1,4 +1,4 @@
-"""YA – Error handler: the Error Workflow of every other YA workflow.
+"""YA 9 – Error handler: log every failure: the Error Workflow of every other YA workflow.
 
 Runs when an execution fails after its node-level retries. Writes one error_log row and,
 for a chat request, marks request_log.status = 'failed' (matched on the n8n execution id
@@ -52,14 +52,14 @@ select (select id from logged) as error_log_id,
        (select count(*) from failed) as requests_failed;"""
 
 nodes = [
-    node("On workflow error", "n8n-nodes-base.errorTrigger", 1, [0, 0], {}),
-    code("Describe error", [220, 0], DESCRIBE),
-    sql("Log error + fail request", [440, 0], LOG, "={{ JSON.stringify($json) }}"),
+    node("Trigger: any YA workflow failed", "n8n-nodes-base.errorTrigger", 1, [0, 0], {}),
+    code("Build alert (name, node, URL)", [220, 0], DESCRIBE),
+    sql("DB: log alert, mark request failed", [440, 0], LOG, "={{ JSON.stringify($json) }}"),
 ]
 
 connections = connect(
-    ("On workflow error", "Describe error"),
-    ("Describe error", "Log error + fail request"),
+    ("Trigger: any YA workflow failed", "Build alert (name, node, URL)"),
+    ("Build alert (name, node, URL)", "DB: log alert, mark request failed"),
 )
 
-write("error_handler", "YAerrorHandler01", "YA – Error handler", nodes, connections)
+write("error_handler", "YAerrorHandler01", "YA 9 – Error handler: log every failure", nodes, connections)

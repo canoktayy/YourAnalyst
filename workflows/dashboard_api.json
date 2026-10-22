@@ -1,6 +1,6 @@
 {
   "id": "YAdashboardApi01",
-  "name": "YA – Dashboard API",
+  "name": "YA 7 – Dashboard page: load and save data",
   "active": false,
   "nodes": [
     {
@@ -10,8 +10,8 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "name": "GET /ya-dashboard",
-      "id": "260da0b0-9431-5429-a458-3d41f761d2e8",
+      "name": "Trigger: load dashboard (GET /ya-dashboard)",
+      "id": "fe4ef9c9-e609-5aca-8093-d5d9e7f7a69a",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
@@ -27,8 +27,8 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "name": "POST /ya-record",
-      "id": "4c00002a-d272-5292-a8c0-fa186ae9eb25",
+      "name": "Trigger: save form (POST /ya-record)",
+      "id": "bb530eb8-778f-50af-95f6-8fe9feb0091a",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
@@ -45,8 +45,8 @@
           "queryReplacement": "={{ JSON.stringify({ token: $json.headers['x-ya-token'] ?? null }) }}"
         }
       },
-      "name": "Auth user",
-      "id": "e0c550a7-cdd1-5317-8c50-e29df19599e6",
+      "name": "DB: find user by token",
+      "id": "8a70da64-fab9-5f55-9c2f-fddaaa5122a3",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -74,7 +74,7 @@
           },
           "conditions": [
             {
-              "id": "b6f8af9c-089b-5536-a357-ab7ff76e7f5e",
+              "id": "5961c8f7-8460-517a-8c4c-cb016f0b9826",
               "leftValue": "={{ $json.user_id }}",
               "operator": {
                 "type": "string",
@@ -88,8 +88,8 @@
         "looseTypeValidation": true,
         "options": {}
       },
-      "name": "If: authenticated?",
-      "id": "52fac36f-f7f2-544c-bd63-bc0e451b996a",
+      "name": "Token valid?",
+      "id": "c49249d2-c87e-596e-85f0-34ea1a5c707f",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
@@ -105,8 +105,8 @@
           "responseCode": 401
         }
       },
-      "name": "Respond 401",
-      "id": "ba6a1ea3-fe90-5398-93f7-0e1b80b197fd",
+      "name": "Reply 401: invalid token",
+      "id": "1737bbe5-f5f8-59a8-b59d-0cfdab760782",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
@@ -124,8 +124,8 @@
           },
           "conditions": [
             {
-              "id": "7547d170-8165-51dc-a74f-805f4d3eb8ad",
-              "leftValue": "={{ $('POST /ya-record').isExecuted }}",
+              "id": "8f4c64d0-2cef-50eb-8750-3434b1643c61",
+              "leftValue": "={{ $('Trigger: save form (POST /ya-record)').isExecuted }}",
               "operator": {
                 "type": "boolean",
                 "operation": "true",
@@ -138,8 +138,8 @@
         "looseTypeValidation": true,
         "options": {}
       },
-      "name": "If: record write?",
-      "id": "8fc4595f-82a9-5fd9-ac36-3228d97a527f",
+      "name": "Is it a form save?",
+      "id": "737ea6ec-6f70-513a-97a8-41fff52e6016",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
@@ -149,10 +149,10 @@
     },
     {
       "parameters": {
-        "jsCode": "// Validate and normalise a dashboard form write before it reaches the database.\nconst body = $('POST /ya-record').first().json.body ?? {};\nconst user_id = $('Auth user').first().json.user_id;\nconst errors = [];\n\nconst TYPES = ['asset', 'liability', 'holding', 'watchlist'];\nconst ACTIONS = ['create', 'update', 'delete'];\nconst UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\n\nconst type = String(body.type ?? '');\nconst action = String(body.action ?? '');\nconst id = body.id ?? null;\nconst f = body.fields ?? {};\n\nif (!TYPES.includes(type)) errors.push(`type must be one of ${TYPES.join(', ')}`);\nif (!ACTIONS.includes(action)) errors.push(`action must be one of ${ACTIONS.join(', ')}`);\nif (action !== 'create' && !UUID.test(String(id))) errors.push('id must be a record uuid');\n\nconst text = (v, max) => String(v ?? '').trim().slice(0, max);\nconst cur = v => String(v ?? '').trim().toUpperCase();\nconst num = v => (typeof v === 'string' ? Number(v.replace(',', '.')) : Number(v));\nconst checkCur = (c, field) => { if (!/^[A-Z]{3}$/.test(c)) errors.push(`${field} must be a 3-letter currency code`); };\n\nlet fields = {};\nif (action !== 'delete') {\n  if (type === 'asset') {\n    fields = {\n      kind: f.kind === 'other' ? 'other' : 'cash',\n      name: text(f.name, 80),\n      amount: num(f.amount),\n      currency: cur(f.currency),\n      color: /^#[0-9a-f]{6}$/i.test(f.color ?? '') ? f.color : null,\n    };\n    if (!fields.name) errors.push('name is required');\n    if (!(fields.amount >= 0)) errors.push('amount must be a number >= 0');\n    checkCur(fields.currency, 'currency');\n  } else if (type === 'liability') {\n    fields = {\n      counterparty: text(f.counterparty, 80),\n      amount: num(f.amount),\n      currency: cur(f.currency),\n      note: text(f.note, 200) || null,\n    };\n    if (!fields.counterparty) errors.push('counterparty is required');\n    if (!(fields.amount > 0)) errors.push('amount must be a number > 0');\n    checkCur(fields.currency, 'currency');\n  } else if (type === 'holding') {\n    fields = {\n      symbol: String(f.symbol ?? '').trim().toUpperCase(),\n      name: text(f.name, 80) || null,\n      quantity: num(f.quantity),\n      cost_per_share: num(f.cost_per_share ?? 0),\n      cost_currency: cur(f.cost_currency || 'USD'),\n    };\n    if (!/^[A-Z][A-Z0-9.\\-]{0,9}$/.test(fields.symbol)) errors.push('symbol is not a valid ticker');\n    if (!(fields.quantity > 0)) errors.push('quantity must be a number > 0');\n    if (!(fields.cost_per_share >= 0)) errors.push('cost_per_share must be a number >= 0');\n    checkCur(fields.cost_currency, 'cost_currency');\n  } else if (type === 'watchlist') {\n    // create: symbol (+ optional name); update: position only (drag and drop order).\n    if (action === 'create') {\n      fields = { symbol: String(f.symbol ?? '').trim().toUpperCase(), name: text(f.name, 80) || null };\n      if (!/^[A-Z0-9^][A-Z0-9.\\-=^]{0,14}$/.test(fields.symbol)) errors.push('symbol is not a valid ticker');\n    } else {\n      fields = { position: num(f.position) };\n      if (!Number.isFinite(fields.position)) errors.push('position must be a number');\n    }\n  }\n}\n\nreturn [{ json: { valid: errors.length === 0, errors, type, action, id, user_id, fields } }];\n"
+        "jsCode": "// Validate and normalise a dashboard form write before it reaches the database.\nconst body = $('Trigger: save form (POST /ya-record)').first().json.body ?? {};\nconst user_id = $('DB: find user by token').first().json.user_id;\nconst errors = [];\n\nconst TYPES = ['asset', 'liability', 'holding', 'watchlist'];\nconst ACTIONS = ['create', 'update', 'delete'];\nconst UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\n\nconst type = String(body.type ?? '');\nconst action = String(body.action ?? '');\nconst id = body.id ?? null;\nconst f = body.fields ?? {};\n\nif (!TYPES.includes(type)) errors.push(`type must be one of ${TYPES.join(', ')}`);\nif (!ACTIONS.includes(action)) errors.push(`action must be one of ${ACTIONS.join(', ')}`);\nif (action !== 'create' && !UUID.test(String(id))) errors.push('id must be a record uuid');\n\nconst text = (v, max) => String(v ?? '').trim().slice(0, max);\nconst cur = v => String(v ?? '').trim().toUpperCase();\nconst num = v => (typeof v === 'string' ? Number(v.replace(',', '.')) : Number(v));\nconst checkCur = (c, field) => { if (!/^[A-Z]{3}$/.test(c)) errors.push(`${field} must be a 3-letter currency code`); };\n\nlet fields = {};\nif (action !== 'delete') {\n  if (type === 'asset') {\n    fields = {\n      kind: f.kind === 'other' ? 'other' : 'cash',\n      name: text(f.name, 80),\n      amount: num(f.amount),\n      currency: cur(f.currency),\n      color: /^#[0-9a-f]{6}$/i.test(f.color ?? '') ? f.color : null,\n    };\n    if (!fields.name) errors.push('name is required');\n    if (!(fields.amount >= 0)) errors.push('amount must be a number >= 0');\n    checkCur(fields.currency, 'currency');\n  } else if (type === 'liability') {\n    fields = {\n      counterparty: text(f.counterparty, 80),\n      amount: num(f.amount),\n      currency: cur(f.currency),\n      note: text(f.note, 200) || null,\n    };\n    if (!fields.counterparty) errors.push('counterparty is required');\n    if (!(fields.amount > 0)) errors.push('amount must be a number > 0');\n    checkCur(fields.currency, 'currency');\n  } else if (type === 'holding') {\n    fields = {\n      symbol: String(f.symbol ?? '').trim().toUpperCase(),\n      name: text(f.name, 80) || null,\n      quantity: num(f.quantity),\n      cost_per_share: num(f.cost_per_share ?? 0),\n      cost_currency: cur(f.cost_currency || 'USD'),\n    };\n    if (!/^[A-Z][A-Z0-9.\\-]{0,9}$/.test(fields.symbol)) errors.push('symbol is not a valid ticker');\n    if (!(fields.quantity > 0)) errors.push('quantity must be a number > 0');\n    if (!(fields.cost_per_share >= 0)) errors.push('cost_per_share must be a number >= 0');\n    checkCur(fields.cost_currency, 'cost_currency');\n  } else if (type === 'watchlist') {\n    // create: symbol (+ optional name); update: position only (drag and drop order).\n    if (action === 'create') {\n      fields = { symbol: String(f.symbol ?? '').trim().toUpperCase(), name: text(f.name, 80) || null };\n      if (!/^[A-Z0-9^][A-Z0-9.\\-=^]{0,14}$/.test(fields.symbol)) errors.push('symbol is not a valid ticker');\n    } else {\n      fields = { position: num(f.position) };\n      if (!Number.isFinite(fields.position)) errors.push('position must be a number');\n    }\n  }\n}\n\nreturn [{ json: { valid: errors.length === 0, errors, type, action, id, user_id, fields } }];\n"
       },
-      "name": "Validate record",
-      "id": "044850c7-b262-5391-9c93-dde841c29c66",
+      "name": "Check form fields",
+      "id": "4494f6b9-628f-5f00-951a-b595552a7b54",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -170,7 +170,7 @@
           },
           "conditions": [
             {
-              "id": "8cff74b9-e268-518a-b453-2ff33e3d7e97",
+              "id": "d54dac68-4c12-5c5b-a6c1-2286f4d8469e",
               "leftValue": "={{ $json.valid }}",
               "operator": {
                 "type": "boolean",
@@ -184,8 +184,8 @@
         "looseTypeValidation": true,
         "options": {}
       },
-      "name": "If: record valid?",
-      "id": "5491cc6a-6332-5fc6-b49f-9a5122e12282",
+      "name": "Form fields OK?",
+      "id": "37e87856-76ee-5039-afce-7e6eca852be8",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
@@ -201,8 +201,8 @@
           "responseCode": 400
         }
       },
-      "name": "Respond 400",
-      "id": "3adf7442-a4ac-528e-bb68-13016716b13d",
+      "name": "Reply 400: invalid form",
+      "id": "20de9ad5-335d-512b-8f8d-17bb084e0ed0",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
@@ -223,7 +223,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "92f63166-9d79-5d59-aa48-a18fa14f0efb",
+                    "id": "78c76eb1-f006-501f-bad2-9d5e31f4c41f",
                     "leftValue": "={{ $json.type }}",
                     "rightValue": "asset",
                     "operator": {
@@ -246,7 +246,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "39da8b39-d1c1-5218-a3dc-4246c08d081e",
+                    "id": "e2308d95-b990-5efa-baef-58ce1b7876aa",
                     "leftValue": "={{ $json.type }}",
                     "rightValue": "liability",
                     "operator": {
@@ -269,7 +269,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "a981442f-33fb-56d7-87d1-7f08a0695efe",
+                    "id": "ee0bee53-2cbe-57db-a607-949ff5bf41e7",
                     "leftValue": "={{ $json.type }}",
                     "rightValue": "holding",
                     "operator": {
@@ -292,7 +292,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "bf000947-fe9c-5d5e-8aff-79ff23a1550c",
+                    "id": "361bf89b-6632-5143-a54f-13a632882ee2",
                     "leftValue": "={{ $json.type }}",
                     "rightValue": "watchlist",
                     "operator": {
@@ -312,8 +312,8 @@
           "fallbackOutput": "extra"
         }
       },
-      "name": "Switch: record type",
-      "id": "4e01c4f4-a260-56ea-ae27-ab6d99a0690e",
+      "name": "Route by record type",
+      "id": "936d6b10-639f-576d-8c41-58c3214ec91d",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
@@ -329,8 +329,8 @@
           "queryReplacement": "={{ JSON.stringify($json) }}"
         }
       },
-      "name": "Write asset",
-      "id": "b9795dc7-5d2d-5d47-b797-14e6af1bafe5",
+      "name": "DB: save asset",
+      "id": "00262bd4-4dab-5c43-a6ff-53551c4ebf7e",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -355,8 +355,8 @@
           "queryReplacement": "={{ JSON.stringify($json) }}"
         }
       },
-      "name": "Write liability",
-      "id": "84476b11-4caf-5c61-a6a5-c155b4124864",
+      "name": "DB: save debt",
+      "id": "aa6f87e7-8c0c-5e55-84c7-660f72461388",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -381,8 +381,8 @@
           "queryReplacement": "={{ JSON.stringify($json) }}"
         }
       },
-      "name": "Write watchlist",
-      "id": "9a627ef9-aec9-5052-8720-7652f6e1d55b",
+      "name": "DB: save watchlist item",
+      "id": "703b7c1a-14bd-5899-9c38-ef111b267b00",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -407,8 +407,8 @@
           "queryReplacement": "={{ JSON.stringify($json) }}"
         }
       },
-      "name": "Write holding",
-      "id": "ddc3b123-c750-50b7-aaac-fcdc45dfaa18",
+      "name": "DB: save stock holding",
+      "id": "10328c62-353d-5764-ba9f-7aec36dc9b1d",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -435,7 +435,7 @@
           },
           "conditions": [
             {
-              "id": "c27642a6-0e6f-5f10-bc23-b7aa9bd17ef9",
+              "id": "fd53fa60-3631-5882-9650-8b21ba6755b8",
               "leftValue": "={{ $json.record_id }}",
               "operator": {
                 "type": "string",
@@ -449,8 +449,8 @@
         "looseTypeValidation": true,
         "options": {}
       },
-      "name": "If: record found?",
-      "id": "bd9eb4e8-2872-5ecf-baa2-62cd1e0b389d",
+      "name": "Record found?",
+      "id": "f2581c48-8f43-53f7-9853-db25a4dbf2d8",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
@@ -466,8 +466,8 @@
           "responseCode": 404
         }
       },
-      "name": "Respond 404",
-      "id": "0333dcf4-1d9b-5c4f-bb96-e060e4fd517b",
+      "name": "Reply 404: record not found",
+      "id": "61bc5189-ad4c-5563-b152-e1dbf0ee2d7f",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
@@ -480,11 +480,11 @@
         "operation": "executeQuery",
         "query": "-- Everything the dashboard renders, in one round trip. Totals come from SQL views.\nwith u as (select * from app_user where id = $1::uuid),\nbase as (select f.usd_per_unit from fx_rate f join u on f.currency = u.base_currency)\nselect json_build_object(\n    'user', (select json_build_object('id', id, 'name', display_name, 'base_currency', base_currency) from u),\n    'totals', (select row_to_json(n) from v_net_worth n where n.user_id = $1::uuid),\n    'assets', coalesce((\n        select json_agg(a order by a.created_at)\n        from (select id, kind, name, amount, currency, color, created_at\n              from asset where user_id = $1::uuid) a), '[]'::json),\n    'liabilities', coalesce((\n        select json_agg(l order by l.created_at)\n        from (select id, counterparty, amount, currency, note, created_at\n              from liability where user_id = $1::uuid) l), '[]'::json),\n    'positions', coalesce((\n        select json_agg(p order by p.symbol)\n        from (select id, symbol, name, quantity, cost_per_share, cost_currency, last_price,\n                     price_currency, change_pct, price_as_of, price_status, position_value,\n                     cost_basis, unrealised_pl\n              from v_position where user_id = $1::uuid) p), '[]'::json),\n    -- rates[c] = units of base currency per 1 unit of c\n    'watchlist', coalesce((\n        select json_agg(w order by w.position, w.created_at)\n        from (select w.id, w.symbol, w.name, w.position, w.created_at, q.price, q.change_pct,\n                     q.currency as price_currency, q.as_of as price_as_of\n              from watchlist w left join quote q on q.symbol = w.symbol\n              where w.user_id = $1::uuid) w), '[]'::json),\n    'rates', (select json_object_agg(f.currency, f.usd_per_unit / base.usd_per_unit)\n              from fx_rate f, base),\n    'fx_as_of', (select max(as_of) from fx_rate where source <> 'fixed'),\n    'quotes_as_of', (select max(as_of) from quote)\n) as dashboard;",
         "options": {
-          "queryReplacement": "={{ $('Auth user').first().json.user_id }}"
+          "queryReplacement": "={{ $('DB: find user by token').first().json.user_id }}"
         }
       },
-      "name": "Load dashboard",
-      "id": "67d7d59a-5384-55b4-be48-0e7fed24c942",
+      "name": "DB: load dashboard data",
+      "id": "e7152609-f94e-5e40-9354-4ffc29642546",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -509,8 +509,8 @@
           "responseCode": 200
         }
       },
-      "name": "Respond dashboard",
-      "id": "3f5a6cf6-2262-5dfe-af76-8956b2ce610e",
+      "name": "Reply: dashboard data",
+      "id": "05afe5a9-cdc1-5f35-9622-06143f75fde5",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
@@ -520,203 +520,203 @@
     }
   ],
   "connections": {
-    "GET /ya-dashboard": {
+    "Trigger: load dashboard (GET /ya-dashboard)": {
       "main": [
         [
           {
-            "node": "Auth user",
+            "node": "DB: find user by token",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "POST /ya-record": {
+    "Trigger: save form (POST /ya-record)": {
       "main": [
         [
           {
-            "node": "Auth user",
+            "node": "DB: find user by token",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Auth user": {
+    "DB: find user by token": {
       "main": [
         [
           {
-            "node": "If: authenticated?",
+            "node": "Token valid?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "If: authenticated?": {
+    "Token valid?": {
       "main": [
         [
           {
-            "node": "If: record write?",
+            "node": "Is it a form save?",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Respond 401",
+            "node": "Reply 401: invalid token",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "If: record write?": {
+    "Is it a form save?": {
       "main": [
         [
           {
-            "node": "Validate record",
+            "node": "Check form fields",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Load dashboard",
+            "node": "DB: load dashboard data",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Validate record": {
+    "Check form fields": {
       "main": [
         [
           {
-            "node": "If: record valid?",
+            "node": "Form fields OK?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "If: record valid?": {
+    "Form fields OK?": {
       "main": [
         [
           {
-            "node": "Switch: record type",
+            "node": "Route by record type",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Respond 400",
+            "node": "Reply 400: invalid form",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Switch: record type": {
+    "Route by record type": {
       "main": [
         [
           {
-            "node": "Write asset",
+            "node": "DB: save asset",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Write liability",
+            "node": "DB: save debt",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Write holding",
+            "node": "DB: save stock holding",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Write watchlist",
+            "node": "DB: save watchlist item",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Write watchlist": {
+    "DB: save watchlist item": {
       "main": [
         [
           {
-            "node": "If: record found?",
+            "node": "Record found?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Write asset": {
+    "DB: save asset": {
       "main": [
         [
           {
-            "node": "If: record found?",
+            "node": "Record found?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Write liability": {
+    "DB: save debt": {
       "main": [
         [
           {
-            "node": "If: record found?",
+            "node": "Record found?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Write holding": {
+    "DB: save stock holding": {
       "main": [
         [
           {
-            "node": "If: record found?",
+            "node": "Record found?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "If: record found?": {
+    "Record found?": {
       "main": [
         [
           {
-            "node": "Load dashboard",
+            "node": "DB: load dashboard data",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Respond 404",
+            "node": "Reply 404: record not found",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Load dashboard": {
+    "DB: load dashboard data": {
       "main": [
         [
           {
-            "node": "Respond dashboard",
+            "node": "Reply: dashboard data",
             "type": "main",
             "index": 0
           }

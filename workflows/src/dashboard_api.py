@@ -1,4 +1,4 @@
-"""YA – Dashboard API: GET dashboard data, POST record create/update/delete.
+"""YA 7 – Dashboard page: load and save data: GET dashboard data, POST record create/update/delete.
 
 Both webhooks authenticate with the X-YA-Token header (sha256 compared with
 app_user.api_token_hash) and answer with the full dashboard payload, so the UI
@@ -7,8 +7,8 @@ re-renders from the database after every write.
 from lib import IS_TRUE, NOT_EMPTY, auth, code, connect, if_node, respond, sql, switch, webhook, write
 
 VALIDATE_RECORD = r"""// Validate and normalise a dashboard form write before it reaches the database.
-const body = $('POST /ya-record').first().json.body ?? {};
-const user_id = $('Auth user').first().json.user_id;
+const body = $('Trigger: save form (POST /ya-record)').first().json.body ?? {};
+const user_id = $('DB: find user by token').first().json.user_id;
 const errors = [];
 
 const TYPES = ['asset', 'liability', 'holding', 'watchlist'];
@@ -161,61 +161,61 @@ ins as (
     returning id)
 select coalesce((select id from del), (select id from upd), (select id from ins)) as record_id;"""
 
-USER_ID = "={{ $('Auth user').first().json.user_id }}"
+USER_ID = "={{ $('DB: find user by token').first().json.user_id }}"
 
 nodes = [
-    webhook("GET /ya-dashboard", [0, 0], "GET", "ya-dashboard"),
-    webhook("POST /ya-record", [0, 240], "POST", "ya-record"),
-    auth("Auth user", [240, 120]),
-    if_node("If: authenticated?", [460, 120], "={{ $json.user_id }}", NOT_EMPTY),
-    respond("Respond 401", [680, 300],
+    webhook("Trigger: load dashboard (GET /ya-dashboard)", [0, 0], "GET", "ya-dashboard"),
+    webhook("Trigger: save form (POST /ya-record)", [0, 240], "POST", "ya-record"),
+    auth("DB: find user by token", [240, 120]),
+    if_node("Token valid?", [460, 120], "={{ $json.user_id }}", NOT_EMPTY),
+    respond("Reply 401: invalid token", [680, 300],
             '={{ { "ok": false, "error": "Missing or invalid X-YA-Token" } }}', 401),
-    if_node("If: record write?", [680, 100], "={{ $('POST /ya-record').isExecuted }}", IS_TRUE),
+    if_node("Is it a form save?", [680, 100], "={{ $('Trigger: save form (POST /ya-record)').isExecuted }}", IS_TRUE),
 
-    code("Validate record", [900, 240], VALIDATE_RECORD),
-    if_node("If: record valid?", [1120, 240], "={{ $json.valid }}", IS_TRUE),
-    respond("Respond 400", [1340, 440],
+    code("Check form fields", [900, 240], VALIDATE_RECORD),
+    if_node("Form fields OK?", [1120, 240], "={{ $json.valid }}", IS_TRUE),
+    respond("Reply 400: invalid form", [1340, 440],
             '={{ { "ok": false, "error": "Invalid record", "details": $json.errors } }}', 400),
-    switch("Switch: record type", [1340, 220], "={{ $json.type }}",
+    switch("Route by record type", [1340, 220], "={{ $json.type }}",
            [("asset", "asset"), ("liability", "liability"), ("holding", "holding"), ("watchlist", "watchlist")]),
-    sql("Write asset", [1580, 80], write_sql("asset", ["kind", "name", "amount", "currency", "color"]),
+    sql("DB: save asset", [1580, 80], write_sql("asset", ["kind", "name", "amount", "currency", "color"]),
         "={{ JSON.stringify($json) }}"),
-    sql("Write liability", [1580, 240], write_sql("liability", ["counterparty", "amount", "currency", "note"]),
+    sql("DB: save debt", [1580, 240], write_sql("liability", ["counterparty", "amount", "currency", "note"]),
         "={{ JSON.stringify($json) }}"),
-    sql("Write watchlist", [1580, 560], WRITE_WATCHLIST, "={{ JSON.stringify($json) }}"),
-    sql("Write holding", [1580, 400],
+    sql("DB: save watchlist item", [1580, 560], WRITE_WATCHLIST, "={{ JSON.stringify($json) }}"),
+    sql("DB: save stock holding", [1580, 400],
         write_sql("holding", ["symbol", "name", "quantity", "cost_per_share", "cost_currency"]),
         "={{ JSON.stringify($json) }}"),
-    if_node("If: record found?", [1800, 240], "={{ $json.record_id }}", NOT_EMPTY),
-    respond("Respond 404", [2020, 420],
+    if_node("Record found?", [1800, 240], "={{ $json.record_id }}", NOT_EMPTY),
+    respond("Reply 404: record not found", [2020, 420],
             '={{ { "ok": false, "error": "Record not found for this user" } }}', 404),
 
-    sql("Load dashboard", [2020, 40], LOAD_DASHBOARD, USER_ID),
-    respond("Respond dashboard", [2240, 40], "={{ { ok: true, ...$json.dashboard } }}"),
+    sql("DB: load dashboard data", [2020, 40], LOAD_DASHBOARD, USER_ID),
+    respond("Reply: dashboard data", [2240, 40], "={{ { ok: true, ...$json.dashboard } }}"),
 ]
 
 connections = connect(
-    ("GET /ya-dashboard", "Auth user"),
-    ("POST /ya-record", "Auth user"),
-    ("Auth user", "If: authenticated?"),
-    ("If: authenticated?", "If: record write?", 0),
-    ("If: authenticated?", "Respond 401", 1),
-    ("If: record write?", "Validate record", 0),
-    ("If: record write?", "Load dashboard", 1),
-    ("Validate record", "If: record valid?"),
-    ("If: record valid?", "Switch: record type", 0),
-    ("If: record valid?", "Respond 400", 1),
-    ("Switch: record type", "Write asset", 0),
-    ("Switch: record type", "Write liability", 1),
-    ("Switch: record type", "Write holding", 2),
-    ("Switch: record type", "Write watchlist", 3),
-    ("Write watchlist", "If: record found?"),
-    ("Write asset", "If: record found?"),
-    ("Write liability", "If: record found?"),
-    ("Write holding", "If: record found?"),
-    ("If: record found?", "Load dashboard", 0),
-    ("If: record found?", "Respond 404", 1),
-    ("Load dashboard", "Respond dashboard"),
+    ("Trigger: load dashboard (GET /ya-dashboard)", "DB: find user by token"),
+    ("Trigger: save form (POST /ya-record)", "DB: find user by token"),
+    ("DB: find user by token", "Token valid?"),
+    ("Token valid?", "Is it a form save?", 0),
+    ("Token valid?", "Reply 401: invalid token", 1),
+    ("Is it a form save?", "Check form fields", 0),
+    ("Is it a form save?", "DB: load dashboard data", 1),
+    ("Check form fields", "Form fields OK?"),
+    ("Form fields OK?", "Route by record type", 0),
+    ("Form fields OK?", "Reply 400: invalid form", 1),
+    ("Route by record type", "DB: save asset", 0),
+    ("Route by record type", "DB: save debt", 1),
+    ("Route by record type", "DB: save stock holding", 2),
+    ("Route by record type", "DB: save watchlist item", 3),
+    ("DB: save watchlist item", "Record found?"),
+    ("DB: save asset", "Record found?"),
+    ("DB: save debt", "Record found?"),
+    ("DB: save stock holding", "Record found?"),
+    ("Record found?", "DB: load dashboard data", 0),
+    ("Record found?", "Reply 404: record not found", 1),
+    ("DB: load dashboard data", "Reply: dashboard data"),
 )
 
-write("dashboard_api", "YAdashboardApi01", "YA – Dashboard API", nodes, connections)
+write("dashboard_api", "YAdashboardApi01", "YA 7 – Dashboard page: load and save data", nodes, connections)

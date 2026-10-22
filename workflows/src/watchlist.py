@@ -1,4 +1,4 @@
-"""YA – Update watchlist (sub-workflow, called by the chat router).
+"""YA 4 – Sub: add or remove watchlist stocks (sub-workflow, called by the chat router).
 
 Input item: {user_id, request_id, event_id, watchlist: {action: add|remove, items: [..]}}
 Output item: {intent, status, reply, data}
@@ -12,7 +12,7 @@ from lib import RETRY, code, connect, node, sql, sub_trigger, switch, write
 
 # Every item is looked up on Yahoo search, trying a few spellings: as written, without
 # spaces, and with doubled letters collapsed ("data dog" -> datadog, "cloudfflare" -> cloudflare).
-SPLIT_NAMES = r"""const names = $('Start').first().json.watchlist.items;
+SPLIT_NAMES = r"""const names = $('Input: add or remove').first().json.watchlist.items;
 const items = [];
 names.forEach((name, n) => {
   const base = name.toLowerCase().trim();
@@ -26,7 +26,7 @@ return items;
 US_EXCHANGES = "['NMS', 'NYQ', 'NGM', 'NCM', 'ASE', 'PCX', 'BTS', 'NAS']"
 
 MERGE_RESOLVED = r"""// For each name, take the first spelling that finds a US-listed equity.
-const asked = $('Split names').all().map(i => i.json);
+const asked = $('One item per name').all().map(i => i.json);
 const US = """ + US_EXCHANGES + r""";
 const best = {};
 $input.all().forEach((item, i) => {
@@ -35,7 +35,7 @@ $input.all().forEach((item, i) => {
   const hit = quotes.find(q => US.includes(q.exchange)) ?? null;
   if (hit && (!best[a.n] || a.v < best[a.n].v)) best[a.n] = { v: a.v, name: a.name, symbol: String(hit.symbol).toUpperCase() };
 });
-const names = $('Start').first().json.watchlist.items;
+const names = $('Input: add or remove').first().json.watchlist.items;
 return [{ json: {
   resolved: names.map((_, n) => best[n]).filter(Boolean).map(({ name, symbol }) => ({ name, symbol })),
   unknown: names.filter((_, n) => !best[n]),
@@ -44,16 +44,16 @@ return [{ json: {
 
 SPLIT = r"""// One item per symbol so the HTTP node checks each ticker (an empty list still
 // yields one placeholder item, so the sub-workflow always answers).
-const w = $('Start').first().json.watchlist;
-const merged = $('Merge resolved').first().json;
+const w = $('Input: add or remove').first().json.watchlist;
+const merged = $('Merge found tickers').first().json;
 const symbols = [...new Set(merged.resolved.map(r => r.symbol))];
 return symbols.length ? symbols.map(symbol => ({ json: { symbol } })) : [{ json: { symbol: null } }];
 """
 
 VALIDATE = r"""// Keep only symbols Yahoo knows. Its own symbol and name win over the LLM's guess.
-const w = $('Start').first().json.watchlist;
-const merged = $('Merge resolved').first().json;
-const asked = $('Split symbols').all().map(i => i.json.symbol);
+const w = $('Input: add or remove').first().json.watchlist;
+const merged = $('Merge found tickers').first().json;
+const asked = $('One item per ticker').all().map(i => i.json.symbol);
 const now = Date.now();
 const found = [], missing = [];
 $input.all().forEach((item, i) => {
@@ -73,7 +73,7 @@ $input.all().forEach((item, i) => {
     as_of: Number.isFinite(ts) && ts <= now + 300000 ? new Date(ts).toISOString() : new Date(now).toISOString(),
   });
 });
-return [{ json: { user_id: $('Start').first().json.user_id, found, missing,
+return [{ json: { user_id: $('Input: add or remove').first().json.user_id, found, missing,
   resolved: merged.resolved, unknown: merged.unknown } }];
 """
 
@@ -109,7 +109,7 @@ del as (
     returning w.symbol, w.name)
 select coalesce((select json_agg(json_build_object('symbol', symbol, 'name', name)) from del), '[]'::json) as removed;"""
 
-ADDED_REPLY = r"""const v = $('Validate tickers').first().json;
+ADDED_REPLY = r"""const v = $('Keep only valid tickers').first().json;
 const added = new Set($json.added);
 const money = (n, c) => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n) + ' ' + c;
 const said = Object.fromEntries(v.resolved.map(r => [r.symbol, r.name]));
@@ -128,7 +128,7 @@ return [{ json: { intent: 'watchlist', status: 'done', reply: lines.join('\n'),
   data: { added: [...added], resolved: v.resolved, already: already.map(f => f.symbol), missing: v.missing, unknown: v.unknown } } }];
 """
 
-REMOVED_REPLY = r"""const asked = $('Start').first().json.watchlist.items;
+REMOVED_REPLY = r"""const asked = $('Input: add or remove').first().json.watchlist.items;
 const removed = $json.removed;
 const hit = item => removed.some(r => r.symbol.toLowerCase() === item.toLowerCase()
   || (item.length >= 3 && String(r.name ?? '').toLowerCase().includes(item.toLowerCase())));
@@ -141,10 +141,10 @@ return [{ json: { intent: 'watchlist', status: 'done', reply: lines.join('\n') |
 """
 
 nodes = [
-    sub_trigger("Start", [0, 200], "YAwatchlist00001"),
-    switch("Switch: action", [220, 200], "={{ $json.watchlist.action }}", [("add", "add"), ("remove", "remove")]),
-    code("Split names", [700, -80], SPLIT_NAMES),
-    node("Search name (Yahoo)", "n8n-nodes-base.httpRequest", 4.2, [940, -80],
+    sub_trigger("Input: add or remove", [0, 200], "YAwatchlist00001"),
+    switch("Route: add or remove", [220, 200], "={{ $json.watchlist.action }}", [("add", "add"), ("remove", "remove")]),
+    code("One item per name", [700, -80], SPLIT_NAMES),
+    node("API: find ticker by name (Yahoo)", "n8n-nodes-base.httpRequest", 4.2, [940, -80],
          {"url": "https://query2.finance.yahoo.com/v1/finance/search",
           "sendQuery": True,
           "queryParameters": {"parameters": [{"name": "q", "value": "={{ $json.q }}"},
@@ -154,9 +154,9 @@ nodes = [
           "headerParameters": {"parameters": [{"name": "User-Agent", "value": "Mozilla/5.0"}]},
           "options": {"batching": {"batch": {"batchSize": 4, "batchInterval": 300}}, "timeout": 10000}},
          onError="continueRegularOutput", **RETRY),
-    code("Merge resolved", [1180, -80], MERGE_RESOLVED),
-    code("Split symbols", [1420, 80], SPLIT),
-    node("Check ticker (Yahoo)", "n8n-nodes-base.httpRequest", 4.2, [1660, 80],
+    code("Merge found tickers", [1180, -80], MERGE_RESOLVED),
+    code("One item per ticker", [1420, 80], SPLIT),
+    node("API: check ticker exists (Yahoo)", "n8n-nodes-base.httpRequest", 4.2, [1660, 80],
          {"url": "=https://query1.finance.yahoo.com/v8/finance/chart/{{ encodeURIComponent($json.symbol) }}",
           "sendQuery": True,
           "queryParameters": {"parameters": [{"name": "range", "value": "1d"}, {"name": "interval", "value": "1d"}]},
@@ -164,25 +164,25 @@ nodes = [
           "headerParameters": {"parameters": [{"name": "User-Agent", "value": "Mozilla/5.0"}]},
           "options": {"batching": {"batch": {"batchSize": 5, "batchInterval": 300}}, "timeout": 10000}},
          onError="continueRegularOutput", **RETRY),
-    code("Validate tickers", [1900, 80], VALIDATE),
-    sql("Save watchlist", [2140, 80], SAVE, "={{ JSON.stringify($json) }}"),
-    code("Added reply", [2380, 80], ADDED_REPLY),
-    sql("Remove from watchlist", [460, 320], REMOVE, "={{ JSON.stringify($json) }}"),
-    code("Removed reply", [700, 320], REMOVED_REPLY),
+    code("Keep only valid tickers", [1900, 80], VALIDATE),
+    sql("DB: add to watchlist", [2140, 80], SAVE, "={{ JSON.stringify($json) }}"),
+    code("Reply: added + prices", [2380, 80], ADDED_REPLY),
+    sql("DB: remove from watchlist", [460, 320], REMOVE, "={{ JSON.stringify($json) }}"),
+    code("Reply: removed", [700, 320], REMOVED_REPLY),
 ]
 
 connections = connect(
-    ("Start", "Switch: action"),
-    ("Switch: action", "Split names", 0),
-    ("Split names", "Search name (Yahoo)"),
-    ("Search name (Yahoo)", "Merge resolved"),
-    ("Merge resolved", "Split symbols"),
-    ("Switch: action", "Remove from watchlist", 1),
-    ("Split symbols", "Check ticker (Yahoo)"),
-    ("Check ticker (Yahoo)", "Validate tickers"),
-    ("Validate tickers", "Save watchlist"),
-    ("Save watchlist", "Added reply"),
-    ("Remove from watchlist", "Removed reply"),
+    ("Input: add or remove", "Route: add or remove"),
+    ("Route: add or remove", "One item per name", 0),
+    ("One item per name", "API: find ticker by name (Yahoo)"),
+    ("API: find ticker by name (Yahoo)", "Merge found tickers"),
+    ("Merge found tickers", "One item per ticker"),
+    ("Route: add or remove", "DB: remove from watchlist", 1),
+    ("One item per ticker", "API: check ticker exists (Yahoo)"),
+    ("API: check ticker exists (Yahoo)", "Keep only valid tickers"),
+    ("Keep only valid tickers", "DB: add to watchlist"),
+    ("DB: add to watchlist", "Reply: added + prices"),
+    ("DB: remove from watchlist", "Reply: removed"),
 )
 
-write("watchlist", "YAwatchlist00001", "YA – Update watchlist", nodes, connections)
+write("watchlist", "YAwatchlist00001", "YA 4 – Sub: add or remove watchlist stocks", nodes, connections)

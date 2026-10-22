@@ -1,6 +1,6 @@
 {
   "id": "YAchatRouter0001",
-  "name": "YA – Chat router",
+  "name": "YA 1 – Chat: understand and route a message",
   "active": false,
   "nodes": [
     {
@@ -10,8 +10,8 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "name": "POST /ya-chat",
-      "id": "aa949b3c-349e-57b2-b88d-619a90bb3da9",
+      "name": "Trigger: chat message (POST /ya-chat)",
+      "id": "31f3b523-34d8-5b50-a68b-b4fe386d31e7",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
@@ -28,8 +28,8 @@
           "queryReplacement": "={{ JSON.stringify({ token: $json.headers['x-ya-token'] ?? null }) }}"
         }
       },
-      "name": "Auth user",
-      "id": "e0c550a7-cdd1-5317-8c50-e29df19599e6",
+      "name": "DB: find user by token",
+      "id": "8a70da64-fab9-5f55-9c2f-fddaaa5122a3",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -57,7 +57,7 @@
           },
           "conditions": [
             {
-              "id": "b6f8af9c-089b-5536-a357-ab7ff76e7f5e",
+              "id": "5961c8f7-8460-517a-8c4c-cb016f0b9826",
               "leftValue": "={{ $json.user_id }}",
               "operator": {
                 "type": "string",
@@ -71,8 +71,8 @@
         "looseTypeValidation": true,
         "options": {}
       },
-      "name": "If: authenticated?",
-      "id": "52fac36f-f7f2-544c-bd63-bc0e451b996a",
+      "name": "Token valid?",
+      "id": "c49249d2-c87e-596e-85f0-34ea1a5c707f",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
@@ -88,8 +88,8 @@
           "responseCode": 401
         }
       },
-      "name": "Respond 401",
-      "id": "ba6a1ea3-fe90-5398-93f7-0e1b80b197fd",
+      "name": "Reply 401: invalid token",
+      "id": "1737bbe5-f5f8-59a8-b59d-0cfdab760782",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
@@ -99,10 +99,10 @@
     },
     {
       "parameters": {
-        "jsCode": "const b = $('POST /ya-chat').first().json.body ?? {};\nconst event_id = String(b.event_id ?? '');\nconst text = String(b.text ?? '').trim();\nconst errors = [];\nif (!/^[A-Za-z0-9_.:\\-]{1,100}$/.test(event_id)) errors.push('event_id must be 1-100 chars of [A-Za-z0-9_.:-]');\nif (!text || text.length > 1000) errors.push('text must be 1-1000 characters');\nreturn [{ json: { valid: errors.length === 0, errors, event_id, text, user_id: $json.user_id, base_currency: $json.base_currency } }];\n"
+        "jsCode": "const b = $('Trigger: chat message (POST /ya-chat)').first().json.body ?? {};\nconst event_id = String(b.event_id ?? '');\nconst text = String(b.text ?? '').trim();\nconst errors = [];\nif (!/^[A-Za-z0-9_.:\\-]{1,100}$/.test(event_id)) errors.push('event_id must be 1-100 chars of [A-Za-z0-9_.:-]');\nif (!text || text.length > 1000) errors.push('text must be 1-1000 characters');\nreturn [{ json: { valid: errors.length === 0, errors, event_id, text, user_id: $json.user_id, base_currency: $json.base_currency } }];\n"
       },
-      "name": "Validate message",
-      "id": "eda3781f-c53a-581b-a60d-731b61652a37",
+      "name": "Check message format",
+      "id": "78c265a6-fb47-5930-a459-2b85142cedef",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -120,7 +120,7 @@
           },
           "conditions": [
             {
-              "id": "ca90d39d-079f-5dfe-a4a7-99d2a685ef2f",
+              "id": "316c3c22-f608-5eca-be07-eb0c16fb1fec",
               "leftValue": "={{ $json.valid }}",
               "operator": {
                 "type": "boolean",
@@ -134,8 +134,8 @@
         "looseTypeValidation": true,
         "options": {}
       },
-      "name": "If: message valid?",
-      "id": "fedb68cc-6c57-50a1-becc-a22e6801af84",
+      "name": "Message format OK?",
+      "id": "21d89151-6591-5239-aafd-1fd1834f13e1",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
@@ -151,8 +151,8 @@
           "responseCode": 400
         }
       },
-      "name": "Respond 400",
-      "id": "3adf7442-a4ac-528e-bb68-13016716b13d",
+      "name": "Reply 400: invalid message",
+      "id": "0835628b-a613-56bb-95ff-aefebb70ed7c",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
@@ -168,8 +168,8 @@
           "queryReplacement": "={{ JSON.stringify({ ...$json, execution_id: $execution.id }) }}"
         }
       },
-      "name": "Register request",
-      "id": "27965bb2-ec46-55e0-9a72-19aaf6ee6267",
+      "name": "DB: log message (dedup by event_id)",
+      "id": "b40627c4-1476-5cec-8cf3-855833c29051",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -196,7 +196,7 @@
           },
           "conditions": [
             {
-              "id": "db8642bf-0f61-5e93-b7ab-089f98679a41",
+              "id": "d282613d-e6c4-56c6-be29-7518d82c037d",
               "leftValue": "={{ $json.request_id }}",
               "operator": {
                 "type": "string",
@@ -210,8 +210,8 @@
         "looseTypeValidation": true,
         "options": {}
       },
-      "name": "If: new event?",
-      "id": "4a19e7ed-56e1-5505-8cb6-a258756d4047",
+      "name": "New message, not a duplicate?",
+      "id": "d312475a-21d8-57f3-9258-f36c823b1dca",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
@@ -221,10 +221,10 @@
     },
     {
       "parameters": {
-        "jsCode": "const m = $('Validate message').first().json;\nconst r = $json;\nif (r.prior_response) return [{ json: { ...r.prior_response, replayed: true } }];\nreturn [{ json: { ok: true, replayed: true, status: r.prior_status, intent: null, data: null,\n  reply: 'This message is already being processed.' } }];\n"
+        "jsCode": "const m = $('Check message format').first().json;\nconst r = $json;\nif (r.prior_response) return [{ json: { ...r.prior_response, replayed: true } }];\nreturn [{ json: { ok: true, replayed: true, status: r.prior_status, intent: null, data: null,\n  reply: 'This message is already being processed.' } }];\n"
       },
-      "name": "Replay stored reply",
-      "id": "059c1163-5c5f-501d-8c22-812a2bb93f28",
+      "name": "Get stored reply of duplicate",
+      "id": "f22aa8ad-e283-53a2-b5bd-1431e37aaa8e",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -240,8 +240,8 @@
           "responseCode": 200
         }
       },
-      "name": "Respond replay",
-      "id": "e601cca4-6598-5ed2-87cf-b494b61d7c04",
+      "name": "Reply: stored answer again",
+      "id": "17bbe667-05fa-55af-a06c-d4d2b03f01da",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
@@ -254,11 +254,11 @@
         "operation": "executeQuery",
         "query": "-- What the router needs besides the message: an open confirmation, the user's stocks\n-- (summed per symbol, with the latest price), cash accounts and FX rates. Only symbol and\n-- account NAMES are shown to the LLM; the numbers are used by code (sale proposal).\nwith u as (select ($1::jsonb->>'user_id')::uuid as id)\nselect (\n    select row_to_json(p) from (\n        select record_type, payload, expires_at from pending_confirmation, u\n        where user_id = u.id and status = 'pending' and expires_at > now()\n    ) p) as pending,\n    coalesce((\n        select json_agg(o order by o.symbol) from (\n            select v.symbol, sum(v.quantity) as quantity, max(v.last_price) as price,\n                   max(v.price_currency) as price_currency, max(v.price_status) as price_status\n            from v_position v, u where v.user_id = u.id group by v.symbol) o), '[]'::json) as owned,\n    coalesce((\n        select json_agg(json_build_object('id', a.id, 'name', a.name, 'currency', a.currency, 'kind', a.kind)\n                        order by a.created_at)\n        from asset a, u where a.user_id = u.id), '[]'::json) as accounts,\n    (select json_object_agg(currency, usd_per_unit) from fx_rate) as fx,\n    -- Conversation memory: the last 6 finished exchanges (the current one is still 'received').\n    coalesce((\n        select json_agg(h order by h.created_at) from (\n            select r.input_text, left(r.response->>'reply', 280) as reply, r.created_at\n            from request_log r, u\n            where r.user_id = u.id and r.status <> 'received' and r.input_text is not null\n            order by r.created_at desc limit 6) h), '[]'::json) as history,\n    (select row_to_json(d) from scan_draft d, u\n     where d.user_id = u.id and d.updated_at > now() - interval '20 minutes') as scan_draft;",
         "options": {
-          "queryReplacement": "={{ JSON.stringify({ user_id: $('Validate message').first().json.user_id }) }}"
+          "queryReplacement": "={{ JSON.stringify({ user_id: $('Check message format').first().json.user_id }) }}"
         }
       },
-      "name": "Load context",
-      "id": "1f3bb8e1-6a82-5688-ae53-28cd4c268dd9",
+      "name": "DB: load chat memory and context",
+      "id": "561a8f31-2e3f-5cd8-8321-be7389367499",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -277,10 +277,10 @@
     },
     {
       "parameters": {
-        "jsCode": "// Deterministic routing for confirmation answers; everything else goes to the LLM.\nconst m = $('Validate message').first().json;\nconst request_id = $('Register request').first().json.request_id;\nconst pending = $json.pending;\nconst t = m.text.toLowerCase().replace(/[.!?\\s]+$/, '');\nconst YES = /^(yes|y|ok|okay|confirm|sure|save)$/;\nconst NO = /^(no|n|cancel|nope)$/;\nconst draft = $json.scan_draft ?? null;\nlet route = 'ai';\n// yes/no answer a pending confirmation; with a scan being set up they go to the LLM instead\nif (YES.test(t)) route = pending ? 'confirm' : draft ? 'ai' : 'no_pending';\nelse if (NO.test(t)) route = pending ? 'cancel' : draft ? 'ai' : 'no_pending';\n// The orchestrator sees which stocks and accounts exist (names only), so \"sell my\n// Apple shares\" maps to AAPL and \"if Apple hits 1000\" needs no follow-up question.\nconst owned = $json.owned ?? [], accounts = $json.accounts ?? [];\n// Memory: recent exchanges and any scan being set up, so short answers (\"S&P\", \"all of\n// them\", \"10\") are read as answers to the assistant's last question.\nconst history = $json.history ?? [];\nconst convo = history.map(h => `User: ${h.input_text}\\nAssistant: ${String(h.reply ?? '').replace(/\\s+/g, ' ')}`).join('\\n');\nconst draftLine = draft\n  ? `Scan being set up: mode=${draft.mode ?? '?'}, universe=${draft.universe ?? '?'}, symbol=${draft.symbol ?? '?'}, `\n    + `indicators=${draft.indicators?.join('+') || '?'}, top=${draft.top ?? '?'}\\n` : '';\nconst llm_input = (convo ? `Recent conversation (oldest first):\\n${convo}\\n\\n` : '') + draftLine\n  + `Owned stocks: ${owned.map(o => o.symbol).join(', ') || 'none'}\\n`\n  + `Accounts: ${accounts.map(a => a.name).join(', ') || 'none'}\\n`\n  + `Message: ${m.text}`;\nreturn [{ json: { route, request_id, event_id: m.event_id, user_id: m.user_id, text: m.text, llm_input,\n  pending, owned, accounts, fx: $json.fx ?? {}, history, scan_draft: draft } }];\n"
+        "jsCode": "// Deterministic routing for confirmation answers; everything else goes to the LLM.\nconst m = $('Check message format').first().json;\nconst request_id = $('DB: log message (dedup by event_id)').first().json.request_id;\nconst pending = $json.pending;\nconst t = m.text.toLowerCase().replace(/[.!?\\s]+$/, '');\nconst YES = /^(yes|y|ok|okay|confirm|sure|save)$/;\nconst NO = /^(no|n|cancel|nope)$/;\nconst draft = $json.scan_draft ?? null;\nlet route = 'ai';\n// yes/no answer a pending confirmation; with a scan being set up they go to the LLM instead\nif (YES.test(t)) route = pending ? 'confirm' : draft ? 'ai' : 'no_pending';\nelse if (NO.test(t)) route = pending ? 'cancel' : draft ? 'ai' : 'no_pending';\n// The orchestrator sees which stocks and accounts exist (names only), so \"sell my\n// Apple shares\" maps to AAPL and \"if Apple hits 1000\" needs no follow-up question.\nconst owned = $json.owned ?? [], accounts = $json.accounts ?? [];\n// Memory: recent exchanges and any scan being set up, so short answers (\"S&P\", \"all of\n// them\", \"10\") are read as answers to the assistant's last question.\nconst history = $json.history ?? [];\nconst convo = history.map(h => `User: ${h.input_text}\\nAssistant: ${String(h.reply ?? '').replace(/\\s+/g, ' ')}`).join('\\n');\nconst draftLine = draft\n  ? `Scan being set up: mode=${draft.mode ?? '?'}, universe=${draft.universe ?? '?'}, symbol=${draft.symbol ?? '?'}, `\n    + `indicators=${draft.indicators?.join('+') || '?'}, top=${draft.top ?? '?'}\\n` : '';\nconst llm_input = (convo ? `Recent conversation (oldest first):\\n${convo}\\n\\n` : '') + draftLine\n  + `Owned stocks: ${owned.map(o => o.symbol).join(', ') || 'none'}\\n`\n  + `Accounts: ${accounts.map(a => a.name).join(', ') || 'none'}\\n`\n  + `Message: ${m.text}`;\nreturn [{ json: { route, request_id, event_id: m.event_id, user_id: m.user_id, text: m.text, llm_input,\n  pending, owned, accounts, fx: $json.fx ?? {}, history, scan_draft: draft } }];\n"
       },
-      "name": "Pre-route",
-      "id": "a117dd09-ffdd-5252-824c-c65f269fe7bf",
+      "name": "Build AI input, detect yes/no",
+      "id": "c31d846f-79ae-59ad-81ab-ab1f9b57b1be",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -301,7 +301,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "7feb21cd-3daa-5107-852b-3664c1af7733",
+                    "id": "669ab699-144d-5eb1-bbdc-5c620ea93f84",
                     "leftValue": "={{ $json.route }}",
                     "rightValue": "ai",
                     "operator": {
@@ -324,7 +324,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "c419413f-933d-5e68-8bea-9bb14106a92e",
+                    "id": "b283a66c-e3d9-5d08-805f-d36984226d28",
                     "leftValue": "={{ $json.route }}",
                     "rightValue": "confirm",
                     "operator": {
@@ -347,7 +347,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "e1e53065-894d-5c1c-96c3-391335f22272",
+                    "id": "3829f7e5-bb6b-5ef5-a81d-f8a96b5d3790",
                     "leftValue": "={{ $json.route }}",
                     "rightValue": "cancel",
                     "operator": {
@@ -370,7 +370,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "70a54b43-6d3c-5141-be50-6fd4bdf05af1",
+                    "id": "b695cbbc-f123-5dca-afb3-15ec5033db18",
                     "leftValue": "={{ $json.route }}",
                     "rightValue": "no_pending",
                     "operator": {
@@ -390,8 +390,8 @@
           "fallbackOutput": "extra"
         }
       },
-      "name": "Switch: route",
-      "id": "02843b9e-2a94-5fef-b648-6a5f1b9adff1",
+      "name": "Route: yes / no / new request",
+      "id": "27847bcd-cf78-5eae-aa66-d7e1492b0f6f",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
@@ -412,8 +412,8 @@
           ]
         }
       },
-      "name": "Parse request (AI)",
-      "id": "a85d8386-8fd6-50eb-b64d-93a656c10bbe",
+      "name": "AI 1: choose the tool (JSON)",
+      "id": "7b8abed6-e6d0-51c3-b04d-caa32a7f043c",
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.7,
       "position": [
@@ -440,8 +440,8 @@
           "extraBody": "={{ $env.YA_LLM_EXTRA_BODY || '{}' }}"
         }
       },
-      "name": "Chat model (parse)",
-      "id": "8f8d6e97-0ff5-5abe-a2cb-8405f4d3a7ae",
+      "name": "LLM for AI 1",
+      "id": "ebbc8fdd-c150-5394-a2fe-bf91575f4e59",
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.2,
       "position": [
@@ -457,10 +457,10 @@
     },
     {
       "parameters": {
-        "jsCode": "// Validate the LLM's JSON. Anything missing or invalid becomes a clarifying question:\n// the LLM proposes, this code decides what is allowed to reach the database.\nconst ctx = $('Pre-route').first().json;\n// Small models sometimes return several JSON objects back to back (one per item);\n// split them at the top level instead of failing on the whole string.\nconst objects = [];\n{\n  const t = String($json.text ?? '').replace(/```(?:json)?/gi, '');\n  let depth = 0, start = -1, inStr = false, esc = false;\n  for (let i = 0; i < t.length; i++) {\n    const ch = t[i];\n    if (inStr) { if (esc) esc = false; else if (ch === '\\\\') esc = true; else if (ch === '\"') inStr = false; continue; }\n    if (ch === '\"') inStr = true;\n    else if (ch === '{') { if (depth++ === 0) start = i; }\n    else if (ch === '}' && depth > 0 && --depth === 0) {\n      try { objects.push(JSON.parse(t.slice(start, i + 1))); } catch {}\n    }\n  }\n}\nlet p = objects[0] ?? null;\n\nconst out = (intent, extra = {}) => [{ json: { ...ctx, intent, ...extra } }];\nconst clarify = q => out('clarify', { question: q });\n\n// Several requests in one message: a record needs its own confirmation, so ask for\n// one request at a time instead of silently doing only the first.\nconst intents = objects.map(o => o?.intent).filter(i => i && i !== 'help' && i !== 'clarify');\nconst writes = intents.filter(i => i === 'record' || i === 'sell');\nif (writes.length > 1) {\n  return clarify('I can save one record at a time. Could you send them one by one? For example: \"I have USD 500 in Wise\".');\n}\nif (writes.length && new Set(intents).size > 1) {\n  return clarify('That message asks for more than one thing. Could you send the record on its own, and the rest in a separate message?');\n}\n\nif ((!p || typeof p !== 'object') && ctx.scan_draft) p = { intent: 'help' };   // let the scan fallback below try\nif (!p || typeof p !== 'object') {\n  return out('clarify', { parse_error: $json.error ? String($json.error.message ?? $json.error) : 'invalid JSON from model',\n    question: 'Sorry, I could not understand that. Try e.g. \"I owe Benjamin EUR 1,000\" or \"Analyse AAPL using RSI and MACD\".' });\n}\n\nconst str = v => (typeof v === 'string' ? v.trim().slice(0, 80) : '');\nconst ALIAS = { TL: 'TRY', '₺': 'TRY', '€': 'EUR', '$': 'USD', '£': 'GBP' };\nconst cur = v => { const c = str(v).toUpperCase(); const k = ALIAS[c] ?? c; return /^[A-Z]{3}$/.test(k) ? k : null; };\nconst num = v => {\n  if (typeof v === 'number') return Number.isFinite(v) ? v : null;\n  let s = String(v ?? '').replace(/\\s/g, '');\n  if (/^\\d{1,3}(\\.\\d{3})+(,\\d+)?$/.test(s)) s = s.replace(/\\./g, '').replace(',', '.');\n  else if (/^\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) s = s.replace(/,/g, '');\n  else s = s.replace(',', '.');\n  const n = Number(s);\n  return s !== '' && Number.isFinite(n) ? n : null;\n};\n// Grounding: every number in a record must appear in the user's own message, so a model\n// that fills a gap with an invented value (\"1 USD\") is caught here, not saved.\n// The user's own words: this message plus their recent messages (split conversations:\n// \"I sold AAPL\" -> \"how many?\" -> \"10\").\nconst userWords = [ctx.text, ...(ctx.history ?? []).map(h => h.input_text ?? '')].join(' \\n ');\nconst writtenNumbers = (() => {\n  const out = new Set();\n  for (const m of userWords.matchAll(/(\\d[\\d.,\\s]*\\d|\\d)\\s*(k|m|bn)?\\b/gi)) {\n    const raw = m[1].replace(/\\s/g, '');\n    const mult = { k: 1e3, m: 1e6, bn: 1e9 }[String(m[2] ?? '').toLowerCase()] ?? 1;\n    const variants = [raw.replace(/,/g, ''), raw.replace(/\\./g, '').replace(',', '.'), raw.replace(',', '.')];\n    variants.map(Number).filter(Number.isFinite).forEach(n => out.add(Math.round(n * mult * 1e6) / 1e6));\n  }\n  // Each number on its own too, in case two numbers were joined by a space above.\n  for (const m of userWords.matchAll(/\\d+(?:[.,]\\d+)*/g)) {\n    [m[0].replace(/,/g, ''), m[0].replace(/\\./g, '').replace(',', '.'), m[0].replace(',', '.')]\n      .map(Number).filter(Number.isFinite).forEach(n => out.add(Math.round(n * 1e6) / 1e6));\n  }\n  return out;\n})();\nconst grounded = n => n == null || writtenNumbers.has(Math.round(n * 1e6) / 1e6);\nconst TICKER = /^[A-Z][A-Z0-9.\\-]{0,9}$/;\nconst ALL = ['rsi', 'macd', 'ma_trend', 'volume'];\nconst indicators = list => { const l = (Array.isArray(list) ? list : []).map(x => String(x).toLowerCase()).filter(x => ALL.includes(x)); return l.length ? [...new Set(l)] : ALL; };\n\n// While a scan is being set up, a short answer (\"NVDA\", \"S&P\", \"RSI and MACD\", \"all\") is\n// the answer to the assistant's question even if the model routed it elsewhere.\n// Also: a request to analyse or rank stocks that the model answered with its own question\n// (\"which ratios?\") or a help text goes to the scan tool, which asks with the app's options.\nconst SCAN_WORDS = /\\b(analy[sz]e|analysis|rank|ranking|scan|screen|best stocks?|top \\d+|indicators?|rsi|macd)\\b/i;\nconst toolIntents = ['record', 'sell', 'watchlist', 'question', 'what_if', 'list', 'scan', 'analyse', 'rank'];\n// The 7B model drifts between names (\"analysis\", \"analyze_stock\", \"ranking\"); map them to\n// the tool. An intent that is still unknown but whose message asks for analysis goes to\n// the scan fallback below instead of the help text.\nconst INTENT_ALIAS = { analysis: 'analyse', analyze: 'analyse', analyse_stock: 'analyse', analyze_stock: 'analyse',\n  stock_analysis: 'analyse', technical_analysis: 'analyse', ranking: 'rank', rank_stocks: 'rank', screen: 'scan',\n  screener: 'scan', stock_scan: 'scan', signal: 'scan', signal_lab: 'scan', net_worth: 'list', balance: 'list' };\nif (typeof p.intent === 'string') p.intent = INTENT_ALIAS[p.intent.toLowerCase()] ?? p.intent.toLowerCase();\nconst KNOWN = [...toolIntents, 'chat', 'help', 'clarify'];\nif (!KNOWN.includes(p.intent) && SCAN_WORDS.test(ctx.text)) p.intent = 'help';   // → the scan fallback\nif ((ctx.scan_draft && !toolIntents.includes(p.intent))\n    || (['clarify', 'help', 'chat'].includes(p.intent) && SCAN_WORDS.test(ctx.text))) {\n  const t = ctx.text.trim();\n  const words = t.toLowerCase();\n  const slot = { mode: null, universe: null, symbol: null, indicators: null, all_indicators: false, top: null, cancel: false };\n  const U = [[/\\bdow\\b/, 'dow30'], [/nasdaq/, 'nasdaq100'], [/s\\s*&\\s*p|sp\\s*500|s and p/, 'sp500'], [/nyse|new york stock exchange/, 'nyse'], [/demo/, 'demo']];\n  for (const [re, key] of U) if (re.test(words)) { slot.universe = key; break; }\n  const I = [[/\\brsi\\b/, 'rsi'], [/\\bmacd\\b/, 'macd'], [/trend|moving average|\\bsma\\b/, 'ma_trend'], [/volume/, 'volume']];\n  const found = I.filter(([re]) => re.test(words)).map(([, k]) => k);\n  if (found.length) slot.indicators = found;\n  if (/\\ball\\b|every|all four/.test(words)) slot.all_indicators = true;\n  if (/^\\$?[a-z]{1,5}([.-][a-z])?$/i.test(t) && !/^(all|yes|no|ok|rsi|macd|dow|nyse)$/i.test(t)) slot.symbol = t.replace(/^\\$/, '').toUpperCase();\n  if (/^(cancel|never ?mind|stop|forget it)\\b/.test(words)) slot.cancel = true;\n  if (/\\b(rank|ranking|scan|screen|best stocks?|top \\d+)\\b/.test(words)) slot.mode = 'rank';\n  else if (/\\b(analy[sz]e|analysis)\\b/.test(words) && !slot.universe) slot.mode = 'single';\n  const tick = t.match(/\\b[A-Z]{2,5}\\b/g)?.find(w => !['RSI', 'MACD', 'NYSE', 'SMA', 'USD', 'EUR', 'TRY'].includes(w));\n  if (!slot.symbol && slot.mode === 'single' && tick) slot.symbol = tick;\n  if (slot.mode || slot.universe || slot.indicators || slot.all_indicators || slot.symbol || slot.cancel) p = { intent: 'scan', scan: slot };\n}\n\nswitch (p.intent) {\n  case 'record': {\n    const r = p.record ?? {};\n    const missing = [];\n    let fields;\n    if (r.type === 'liability') {\n      fields = { counterparty: str(r.counterparty), amount: num(r.amount), currency: cur(r.currency), note: null };\n      if (!fields.counterparty) missing.push('who you owe');\n      if (!(fields.amount > 0)) missing.push('the amount');\n      if (!fields.currency) missing.push('the currency');\n    } else if (r.type === 'holding') {\n      const symbol = str(r.symbol).toUpperCase();\n      fields = { symbol, quantity: num(r.quantity), cost_per_share: num(r.price_per_share), cost_currency: cur(r.currency) ?? 'USD' };\n      if (!TICKER.test(symbol)) missing.push('the ticker');\n      if (!(fields.quantity > 0)) missing.push('the number of shares');\n      if (!(fields.cost_per_share >= 0) || fields.cost_per_share === null) missing.push('the purchase price per share');\n    } else if (r.type === 'asset') {\n      fields = { kind: r.kind === 'other' ? 'other' : 'cash', name: str(r.name), amount: num(r.amount), currency: cur(r.currency) };\n      if (!fields.name) missing.push('the account or asset name');\n      if (!(fields.amount >= 0) || fields.amount === null) missing.push('the amount');\n      if (!fields.currency) missing.push('the currency');\n    } else {\n      missing.push('the record type (debt, shares or asset)');\n    }\n    const LABEL = { amount: 'the amount', quantity: 'the number of shares', cost_per_share: 'the purchase price per share' };\n    for (const k of Object.keys(LABEL)) {\n      if (k in fields && fields[k] != null && !grounded(fields[k]) && !missing.includes(LABEL[k])) missing.push(LABEL[k]);\n    }\n    if (missing.length) return clarify(`Before I save this, could you tell me ${missing.join(', ')}?`);\n    return out('record', { record: { type: r.type, fields } });\n  }\n  case 'scan':\n  case 'analyse':\n  case 'rank': {\n    // Signal Lab in the chat. This message's details are merged into the scan being set up\n    // (scan_draft); anything still missing is asked for; when complete the scan runs.\n    const d = ctx.scan_draft ?? {};\n    const n = { ...(p.scan ?? p.analysis ?? {}) };\n    // Slot grounding: a detail counts only if THIS message says it (small models copy\n    // indicators or universes from older turns). Otherwise the draft keeps or asks for it.\n    const msg = ctx.text.toLowerCase();\n    const IND_WORDS = { rsi: /\\brsi\\b/, macd: /\\bmacd\\b/, ma_trend: /trend|moving average|\\bsma\\b|\\bma\\b/, volume: /volume/ };\n    // \"all four (indicators)\", \"every indicator\", or just \"all\" as an answer: the model may\n    // list the four indicators instead of setting all_indicators, so either counts.\n    const modelAll = n.all_indicators === true\n      || (Array.isArray(n.indicators) && new Set(n.indicators.map(k => String(k).toLowerCase()).filter(k => ALL.includes(k))).size === ALL.length);\n    const saysAll = /\\b(all|every|each)\\b[\\w\\s]{0,15}\\b(indicators?|four|4|of them)\\b|\\bfour indicators\\b|^\\W*(all|everything)\\W*$/.test(msg);\n    n.all_indicators = saysAll || (modelAll && /\\ball\\b|every|four|each/.test(msg));\n    if (Array.isArray(n.indicators)) n.indicators = n.indicators.filter(k => IND_WORDS[String(k).toLowerCase()]?.test(msg));\n    // indicators named in the message count even if the model left them out\n    const namedInds = Object.keys(IND_WORDS).filter(k => IND_WORDS[k].test(msg));\n    if (namedInds.length) n.indicators = [...new Set([...(Array.isArray(n.indicators) ? n.indicators : []), ...namedInds])];\n    const UNI_WORDS = { dow30: /\\bdow\\b/, nasdaq100: /nasdaq/, sp500: /s\\s*&\\s*p|sp\\s*500|s and p|standard/, nyse: /nyse|new york/, demo: /demo/ };\n    if (n.universe && !UNI_WORDS[n.universe]?.test(msg)) n.universe = null;\n    if (n.top != null && !String(ctx.text).includes(String(Math.round(num(n.top) ?? -1)))) n.top = null;\n    if (n.symbol) {\n      const symTxt = String(n.symbol).toUpperCase().replace(/^\\$/, '');\n      const named = new RegExp(`\\\\b${symTxt.replace(/[.-]/g, '[.-]')}\\\\b`, 'i').test(ctx.text);\n      // a company name (\"analyse apple\") is fine only in a message that is about one stock\n      if (!named && !/\\b(analy[sz]e|look at|check|stock|shares?)\\b/.test(msg)) n.symbol = null;\n    }\n    // Mode, grounded the same way: \"rank\" needs ranking words or a universe in this message;\n    // a ticker or \"analyse\" without them means one stock.\n    const rankish = /\\b(rank|ranking|scan|screen|best|top \\d+|universe|stocks)\\b/.test(msg) || !!n.universe;\n    const singleish = /\\b(analy[sz]e|analysis|look at|check)\\b/.test(msg);\n    if (n.mode === 'rank' && !rankish) n.mode = null;\n    if (n.mode === 'single' && !(singleish || n.symbol)) n.mode = null;\n    if (!n.mode && (n.symbol || singleish) && !rankish) n.mode = 'single';\n    if (n.cancel === true) return out('scan_cancel');\n    const UNIS = ['demo', 'dow30', 'nasdaq100', 'sp500', 'nyse'];\n    const pick = l => { const x = (Array.isArray(l) ? l : []).map(v => String(v).toLowerCase()).filter(v => ALL.includes(v)); return x.length ? [...new Set(x)] : null; };\n    const sym = str(n.symbol).toUpperCase().replace(/^\\$/, '');\n    const symbol = TICKER.test(sym) ? sym : (d.symbol ?? null);\n    const universe = UNIS.includes(n.universe) ? n.universe : (d.universe ?? null);\n    const inds = n.all_indicators === true ? ALL : (pick(n.indicators) ?? (d.indicators?.length ? d.indicators : null));\n    const topN = num(n.top);\n    const top = topN > 0 ? Math.min(20, Math.round(topN)) : (d.top ?? 5);\n    let mode = n.mode === 'single' || n.mode === 'rank' ? n.mode\n             : p.intent === 'analyse' ? 'single' : p.intent === 'rank' ? 'rank' : null;\n    if (!mode && TICKER.test(sym)) mode = 'single';\n    if (!mode && UNIS.includes(n.universe)) mode = 'rank';\n    mode = mode ?? d.mode ?? null;\n    const draft = { mode, universe, symbol, indicators: inds, top };\n    const ask = [];\n    if (!mode) ask.push('whether to rank a group of stocks (Demo 20, Dow 30, Nasdaq 100, S&P 500 or all NYSE stocks) or to analyse one stock');\n    else if (mode === 'rank' && !universe) ask.push('which universe to scan: Demo 20, Dow 30, Nasdaq 100, S&P 500 or all NYSE stocks');\n    else if (mode === 'single' && !symbol) ask.push('which stock (ticker) to analyse');\n    if (!inds) ask.push('which indicators to use: RSI, MACD, Trend, Volume, or all four');\n    if (ask.length) return out('scan_ask', { scan_draft: draft, question: `To run the scan I still need to know ${ask.join(', and ')}.` });\n    return out('scan', { analysis: { mode, symbol: mode === 'single' ? symbol : null,\n                                     universe: mode === 'rank' ? universe : null, indicators: inds, top } });\n  }\n  case 'watchlist': {\n    const w = p.watchlist ?? {};\n    const action = w.action === 'remove' ? 'remove' : 'add';\n    // Items stay as the user wrote them; the sub-workflow resolves them on Yahoo.\n    // Older-style \"symbols\" output is accepted too.\n    const raw = [...(Array.isArray(w.items) ? w.items : []), ...(Array.isArray(w.symbols) ? w.symbols : [])];\n    const items = [...new Set(raw.map(x => str(x).replace(/^\\$/, '').slice(0, 40))\n      .filter(x => x && !/^(unknown|none|null|n\\/?a|tbd)$/i.test(x)))].slice(0, 20);\n    if (!items.length) return clarify(`Which stocks should I ${action} ${action === 'add' ? 'to' : 'from'} your watchlist?`);\n    return out('watchlist', { watchlist: { action, items } });\n  }\n  case 'question':\n    // The answer sub-workflow reads the database and computes; nothing to validate here.\n    return out('question', { question: { text: ctx.text, scenario: [] } });\n  case 'what_if': {\n    const list = (Array.isArray(p.what_if) ? p.what_if : p.what_if ? [p.what_if] : []).slice(0, 5);\n    const scenario = [];\n    for (const w of list) {\n      const symbol = str(w?.symbol).toUpperCase().replace(/^\\$/, '');\n      const price = num(w?.price), change_pct = num(w?.change_pct);\n      if (!TICKER.test(symbol)) continue;\n      if (price != null && price > 0 && grounded(price)) scenario.push({ symbol, price, change_pct: null });\n      else if (change_pct != null && grounded(Math.abs(change_pct))) scenario.push({ symbol, price: null, change_pct });\n    }\n    if (!scenario.length) return clarify('Which stock and which price (or % change) should I use? For example: \"What if AAPL reaches 400 USD?\"');\n    return out('what_if', { question: { text: ctx.text, scenario } });\n  }\n  case 'sell': {\n    // The code, not the LLM, works out quantity, price, proceeds and the FX conversion.\n    const w = p.sell ?? {};\n    const symbol = str(w.symbol).toUpperCase().replace(/^\\$/, '');\n    const pos = (ctx.owned ?? []).find(o => o.symbol === symbol);\n    const ownedList = (ctx.owned ?? []).map(o => o.symbol).join(', ') || 'none';\n    if (!pos) return clarify(symbol ? `You don't hold ${symbol}. Your stocks: ${ownedList}. Which one did you sell?`\n                                    : `Which stock did you sell? Your stocks: ${ownedList}. One stock at a time, please.`);\n    const held = Number(pos.quantity);\n    let quantity = num(w.quantity);\n    const all = w.all === true || quantity == null;\n    if (all) quantity = held;\n    else if (!grounded(quantity)) return clarify(`How many ${symbol} shares did you sell? You hold ${held}.`);\n    if (!(quantity > 0) || quantity > held) return clarify(`You hold ${held} ${symbol}; how many did you sell?`);\n    let price = num(w.price), price_source = 'given';\n    if (price != null && !grounded(price)) price = null;\n    if (price == null) {\n      if (pos.price == null || pos.price_status === 'unavailable') return clarify(`I have no current price for ${symbol}. At what price per share did you sell?`);\n      price = Number(pos.price); price_source = 'current';\n    }\n    const price_currency = pos.price_currency ?? 'USD';\n    const accounts = ctx.accounts ?? [];\n    const wanted = str(w.account).toLowerCase();\n    const acc = wanted ? accounts.find(a => a.name.toLowerCase() === wanted)\n                         ?? accounts.find(a => a.name.toLowerCase().includes(wanted) || wanted.includes(a.name.toLowerCase()))\n                       : null;\n    if (!acc) return clarify(`Which account should the money go to? ${accounts.length ? 'Your accounts: ' + accounts.map(a => a.name).join(', ') : 'Add an account first.'}`);\n    const fx = ctx.fx ?? {};\n    const round2 = n => Math.round(n * 100) / 100;\n    const proceeds = round2(quantity * price);\n    const rate = acc.currency === price_currency ? 1 : (fx[price_currency] && fx[acc.currency] ? fx[price_currency] / fx[acc.currency] : null);\n    if (rate == null) return clarify(`I have no ${price_currency}→${acc.currency} exchange rate yet. Please try again after the next price refresh.`);\n    return out('sell', { record: { type: 'sale', fields: {\n      symbol, quantity, all: quantity === held, price, price_currency, price_source, proceeds,\n      account_id: acc.id, account_name: acc.name, account_currency: acc.currency,\n      proceeds_account: round2(proceeds * rate) } } });\n  }\n  case 'list':\n    return out('list', { list_currency: cur(p.list?.currency) });\n  case 'chat':\n    return out('chat');\n  case 'help':\n    return out(p.intent);\n  case 'clarify':\n    return clarify(str(p.question) || 'Could you give me a bit more detail?');\n  default:\n    return out('help');\n}\n"
+        "jsCode": "// Validate the LLM's JSON. Anything missing or invalid becomes a clarifying question:\n// the LLM proposes, this code decides what is allowed to reach the database.\nconst ctx = $('Build AI input, detect yes/no').first().json;\n// Small models sometimes return several JSON objects back to back (one per item);\n// split them at the top level instead of failing on the whole string.\nconst objects = [];\n{\n  const t = String($json.text ?? '').replace(/```(?:json)?/gi, '');\n  let depth = 0, start = -1, inStr = false, esc = false;\n  for (let i = 0; i < t.length; i++) {\n    const ch = t[i];\n    if (inStr) { if (esc) esc = false; else if (ch === '\\\\') esc = true; else if (ch === '\"') inStr = false; continue; }\n    if (ch === '\"') inStr = true;\n    else if (ch === '{') { if (depth++ === 0) start = i; }\n    else if (ch === '}' && depth > 0 && --depth === 0) {\n      try { objects.push(JSON.parse(t.slice(start, i + 1))); } catch {}\n    }\n  }\n}\nlet p = objects[0] ?? null;\n\nconst out = (intent, extra = {}) => [{ json: { ...ctx, intent, ...extra } }];\nconst clarify = q => out('clarify', { question: q });\n\n// Several requests in one message: a record needs its own confirmation, so ask for\n// one request at a time instead of silently doing only the first.\nconst intents = objects.map(o => o?.intent).filter(i => i && i !== 'help' && i !== 'clarify');\nconst writes = intents.filter(i => i === 'record' || i === 'sell');\nif (writes.length > 1) {\n  return clarify('I can save one record at a time. Could you send them one by one? For example: \"I have USD 500 in Wise\".');\n}\nif (writes.length && new Set(intents).size > 1) {\n  return clarify('That message asks for more than one thing. Could you send the record on its own, and the rest in a separate message?');\n}\n\nif ((!p || typeof p !== 'object') && ctx.scan_draft) p = { intent: 'help' };   // let the scan fallback below try\nif (!p || typeof p !== 'object') {\n  return out('clarify', { parse_error: $json.error ? String($json.error.message ?? $json.error) : 'invalid JSON from model',\n    question: 'Sorry, I could not understand that. Try e.g. \"I owe Benjamin EUR 1,000\" or \"Analyse AAPL using RSI and MACD\".' });\n}\n\nconst str = v => (typeof v === 'string' ? v.trim().slice(0, 80) : '');\nconst ALIAS = { TL: 'TRY', '₺': 'TRY', '€': 'EUR', '$': 'USD', '£': 'GBP' };\nconst cur = v => { const c = str(v).toUpperCase(); const k = ALIAS[c] ?? c; return /^[A-Z]{3}$/.test(k) ? k : null; };\nconst num = v => {\n  if (typeof v === 'number') return Number.isFinite(v) ? v : null;\n  let s = String(v ?? '').replace(/\\s/g, '');\n  if (/^\\d{1,3}(\\.\\d{3})+(,\\d+)?$/.test(s)) s = s.replace(/\\./g, '').replace(',', '.');\n  else if (/^\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) s = s.replace(/,/g, '');\n  else s = s.replace(',', '.');\n  const n = Number(s);\n  return s !== '' && Number.isFinite(n) ? n : null;\n};\n// Grounding: every number in a record must appear in the user's own message, so a model\n// that fills a gap with an invented value (\"1 USD\") is caught here, not saved.\n// The user's own words: this message plus their recent messages (split conversations:\n// \"I sold AAPL\" -> \"how many?\" -> \"10\").\nconst userWords = [ctx.text, ...(ctx.history ?? []).map(h => h.input_text ?? '')].join(' \\n ');\nconst writtenNumbers = (() => {\n  const out = new Set();\n  for (const m of userWords.matchAll(/(\\d[\\d.,\\s]*\\d|\\d)\\s*(k|m|bn)?\\b/gi)) {\n    const raw = m[1].replace(/\\s/g, '');\n    const mult = { k: 1e3, m: 1e6, bn: 1e9 }[String(m[2] ?? '').toLowerCase()] ?? 1;\n    const variants = [raw.replace(/,/g, ''), raw.replace(/\\./g, '').replace(',', '.'), raw.replace(',', '.')];\n    variants.map(Number).filter(Number.isFinite).forEach(n => out.add(Math.round(n * mult * 1e6) / 1e6));\n  }\n  // Each number on its own too, in case two numbers were joined by a space above.\n  for (const m of userWords.matchAll(/\\d+(?:[.,]\\d+)*/g)) {\n    [m[0].replace(/,/g, ''), m[0].replace(/\\./g, '').replace(',', '.'), m[0].replace(',', '.')]\n      .map(Number).filter(Number.isFinite).forEach(n => out.add(Math.round(n * 1e6) / 1e6));\n  }\n  return out;\n})();\nconst grounded = n => n == null || writtenNumbers.has(Math.round(n * 1e6) / 1e6);\nconst TICKER = /^[A-Z][A-Z0-9.\\-]{0,9}$/;\nconst ALL = ['rsi', 'macd', 'ma_trend', 'volume'];\nconst indicators = list => { const l = (Array.isArray(list) ? list : []).map(x => String(x).toLowerCase()).filter(x => ALL.includes(x)); return l.length ? [...new Set(l)] : ALL; };\n\n// While a scan is being set up, a short answer (\"NVDA\", \"S&P\", \"RSI and MACD\", \"all\") is\n// the answer to the assistant's question even if the model routed it elsewhere.\n// Also: a request to analyse or rank stocks that the model answered with its own question\n// (\"which ratios?\") or a help text goes to the scan tool, which asks with the app's options.\nconst SCAN_WORDS = /\\b(analy[sz]e|analysis|rank|ranking|scan|screen|best stocks?|top \\d+|indicators?|rsi|macd)\\b/i;\nconst toolIntents = ['record', 'sell', 'watchlist', 'question', 'what_if', 'list', 'scan', 'analyse', 'rank'];\n// The 7B model drifts between names (\"analysis\", \"analyze_stock\", \"ranking\"); map them to\n// the tool. An intent that is still unknown but whose message asks for analysis goes to\n// the scan fallback below instead of the help text.\nconst INTENT_ALIAS = { analysis: 'analyse', analyze: 'analyse', analyse_stock: 'analyse', analyze_stock: 'analyse',\n  stock_analysis: 'analyse', technical_analysis: 'analyse', ranking: 'rank', rank_stocks: 'rank', screen: 'scan',\n  screener: 'scan', stock_scan: 'scan', signal: 'scan', signal_lab: 'scan', net_worth: 'list', balance: 'list' };\nif (typeof p.intent === 'string') p.intent = INTENT_ALIAS[p.intent.toLowerCase()] ?? p.intent.toLowerCase();\nconst KNOWN = [...toolIntents, 'chat', 'help', 'clarify'];\nif (!KNOWN.includes(p.intent) && SCAN_WORDS.test(ctx.text)) p.intent = 'help';   // → the scan fallback\nif ((ctx.scan_draft && !toolIntents.includes(p.intent))\n    || (['clarify', 'help', 'chat'].includes(p.intent) && SCAN_WORDS.test(ctx.text))) {\n  const t = ctx.text.trim();\n  const words = t.toLowerCase();\n  const slot = { mode: null, universe: null, symbol: null, indicators: null, all_indicators: false, top: null, cancel: false };\n  const U = [[/\\bdow\\b/, 'dow30'], [/nasdaq/, 'nasdaq100'], [/s\\s*&\\s*p|sp\\s*500|s and p/, 'sp500'], [/nyse|new york stock exchange/, 'nyse'], [/demo/, 'demo']];\n  for (const [re, key] of U) if (re.test(words)) { slot.universe = key; break; }\n  const I = [[/\\brsi\\b/, 'rsi'], [/\\bmacd\\b/, 'macd'], [/trend|moving average|\\bsma\\b/, 'ma_trend'], [/volume/, 'volume']];\n  const found = I.filter(([re]) => re.test(words)).map(([, k]) => k);\n  if (found.length) slot.indicators = found;\n  if (/\\ball\\b|every|all four/.test(words)) slot.all_indicators = true;\n  if (/^\\$?[a-z]{1,5}([.-][a-z])?$/i.test(t) && !/^(all|yes|no|ok|rsi|macd|dow|nyse)$/i.test(t)) slot.symbol = t.replace(/^\\$/, '').toUpperCase();\n  if (/^(cancel|never ?mind|stop|forget it)\\b/.test(words)) slot.cancel = true;\n  if (/\\b(rank|ranking|scan|screen|best stocks?|top \\d+)\\b/.test(words)) slot.mode = 'rank';\n  else if (/\\b(analy[sz]e|analysis)\\b/.test(words) && !slot.universe) slot.mode = 'single';\n  const tick = t.match(/\\b[A-Z]{2,5}\\b/g)?.find(w => !['RSI', 'MACD', 'NYSE', 'SMA', 'USD', 'EUR', 'TRY'].includes(w));\n  if (!slot.symbol && slot.mode === 'single' && tick) slot.symbol = tick;\n  if (slot.mode || slot.universe || slot.indicators || slot.all_indicators || slot.symbol || slot.cancel) p = { intent: 'scan', scan: slot };\n}\n\nswitch (p.intent) {\n  case 'record': {\n    const r = p.record ?? {};\n    const missing = [];\n    let fields;\n    if (r.type === 'liability') {\n      fields = { counterparty: str(r.counterparty), amount: num(r.amount), currency: cur(r.currency), note: null };\n      if (!fields.counterparty) missing.push('who you owe');\n      if (!(fields.amount > 0)) missing.push('the amount');\n      if (!fields.currency) missing.push('the currency');\n    } else if (r.type === 'holding') {\n      const symbol = str(r.symbol).toUpperCase();\n      fields = { symbol, quantity: num(r.quantity), cost_per_share: num(r.price_per_share), cost_currency: cur(r.currency) ?? 'USD' };\n      if (!TICKER.test(symbol)) missing.push('the ticker');\n      if (!(fields.quantity > 0)) missing.push('the number of shares');\n      if (!(fields.cost_per_share >= 0) || fields.cost_per_share === null) missing.push('the purchase price per share');\n    } else if (r.type === 'asset') {\n      fields = { kind: r.kind === 'other' ? 'other' : 'cash', name: str(r.name), amount: num(r.amount), currency: cur(r.currency) };\n      if (!fields.name) missing.push('the account or asset name');\n      if (!(fields.amount >= 0) || fields.amount === null) missing.push('the amount');\n      if (!fields.currency) missing.push('the currency');\n    } else {\n      missing.push('the record type (debt, shares or asset)');\n    }\n    const LABEL = { amount: 'the amount', quantity: 'the number of shares', cost_per_share: 'the purchase price per share' };\n    for (const k of Object.keys(LABEL)) {\n      if (k in fields && fields[k] != null && !grounded(fields[k]) && !missing.includes(LABEL[k])) missing.push(LABEL[k]);\n    }\n    if (missing.length) return clarify(`Before I save this, could you tell me ${missing.join(', ')}?`);\n    return out('record', { record: { type: r.type, fields } });\n  }\n  case 'scan':\n  case 'analyse':\n  case 'rank': {\n    // Signal Lab in the chat. This message's details are merged into the scan being set up\n    // (scan_draft); anything still missing is asked for; when complete the scan runs.\n    const d = ctx.scan_draft ?? {};\n    const n = { ...(p.scan ?? p.analysis ?? {}) };\n    // Slot grounding: a detail counts only if THIS message says it (small models copy\n    // indicators or universes from older turns). Otherwise the draft keeps or asks for it.\n    const msg = ctx.text.toLowerCase();\n    const IND_WORDS = { rsi: /\\brsi\\b/, macd: /\\bmacd\\b/, ma_trend: /trend|moving average|\\bsma\\b|\\bma\\b/, volume: /volume/ };\n    // \"all four (indicators)\", \"every indicator\", or just \"all\" as an answer: the model may\n    // list the four indicators instead of setting all_indicators, so either counts.\n    const modelAll = n.all_indicators === true\n      || (Array.isArray(n.indicators) && new Set(n.indicators.map(k => String(k).toLowerCase()).filter(k => ALL.includes(k))).size === ALL.length);\n    const saysAll = /\\b(all|every|each)\\b[\\w\\s]{0,15}\\b(indicators?|four|4|of them)\\b|\\bfour indicators\\b|^\\W*(all|everything)\\W*$/.test(msg);\n    n.all_indicators = saysAll || (modelAll && /\\ball\\b|every|four|each/.test(msg));\n    if (Array.isArray(n.indicators)) n.indicators = n.indicators.filter(k => IND_WORDS[String(k).toLowerCase()]?.test(msg));\n    // indicators named in the message count even if the model left them out\n    const namedInds = Object.keys(IND_WORDS).filter(k => IND_WORDS[k].test(msg));\n    if (namedInds.length) n.indicators = [...new Set([...(Array.isArray(n.indicators) ? n.indicators : []), ...namedInds])];\n    const UNI_WORDS = { dow30: /\\bdow\\b/, nasdaq100: /nasdaq/, sp500: /s\\s*&\\s*p|sp\\s*500|s and p|standard/, nyse: /nyse|new york/, demo: /demo/ };\n    if (n.universe && !UNI_WORDS[n.universe]?.test(msg)) n.universe = null;\n    if (n.top != null && !String(ctx.text).includes(String(Math.round(num(n.top) ?? -1)))) n.top = null;\n    if (n.symbol) {\n      const symTxt = String(n.symbol).toUpperCase().replace(/^\\$/, '');\n      const named = new RegExp(`\\\\b${symTxt.replace(/[.-]/g, '[.-]')}\\\\b`, 'i').test(ctx.text);\n      // a company name (\"analyse apple\") is fine only in a message that is about one stock\n      if (!named && !/\\b(analy[sz]e|look at|check|stock|shares?)\\b/.test(msg)) n.symbol = null;\n    }\n    // Mode, grounded the same way: \"rank\" needs ranking words or a universe in this message;\n    // a ticker or \"analyse\" without them means one stock.\n    const rankish = /\\b(rank|ranking|scan|screen|best|top \\d+|universe|stocks)\\b/.test(msg) || !!n.universe;\n    const singleish = /\\b(analy[sz]e|analysis|look at|check)\\b/.test(msg);\n    if (n.mode === 'rank' && !rankish) n.mode = null;\n    if (n.mode === 'single' && !(singleish || n.symbol)) n.mode = null;\n    if (!n.mode && (n.symbol || singleish) && !rankish) n.mode = 'single';\n    if (n.cancel === true) return out('scan_cancel');\n    const UNIS = ['demo', 'dow30', 'nasdaq100', 'sp500', 'nyse'];\n    const pick = l => { const x = (Array.isArray(l) ? l : []).map(v => String(v).toLowerCase()).filter(v => ALL.includes(v)); return x.length ? [...new Set(x)] : null; };\n    const sym = str(n.symbol).toUpperCase().replace(/^\\$/, '');\n    const symbol = TICKER.test(sym) ? sym : (d.symbol ?? null);\n    const universe = UNIS.includes(n.universe) ? n.universe : (d.universe ?? null);\n    const inds = n.all_indicators === true ? ALL : (pick(n.indicators) ?? (d.indicators?.length ? d.indicators : null));\n    const topN = num(n.top);\n    const top = topN > 0 ? Math.min(20, Math.round(topN)) : (d.top ?? 5);\n    let mode = n.mode === 'single' || n.mode === 'rank' ? n.mode\n             : p.intent === 'analyse' ? 'single' : p.intent === 'rank' ? 'rank' : null;\n    if (!mode && TICKER.test(sym)) mode = 'single';\n    if (!mode && UNIS.includes(n.universe)) mode = 'rank';\n    mode = mode ?? d.mode ?? null;\n    const draft = { mode, universe, symbol, indicators: inds, top };\n    const ask = [];\n    if (!mode) ask.push('whether to rank a group of stocks (Demo 20, Dow 30, Nasdaq 100, S&P 500 or all NYSE stocks) or to analyse one stock');\n    else if (mode === 'rank' && !universe) ask.push('which universe to scan: Demo 20, Dow 30, Nasdaq 100, S&P 500 or all NYSE stocks');\n    else if (mode === 'single' && !symbol) ask.push('which stock (ticker) to analyse');\n    if (!inds) ask.push('which indicators to use: RSI, MACD, Trend, Volume, or all four');\n    if (ask.length) return out('scan_ask', { scan_draft: draft, question: `To run the scan I still need to know ${ask.join(', and ')}.` });\n    return out('scan', { analysis: { mode, symbol: mode === 'single' ? symbol : null,\n                                     universe: mode === 'rank' ? universe : null, indicators: inds, top } });\n  }\n  case 'watchlist': {\n    const w = p.watchlist ?? {};\n    const action = w.action === 'remove' ? 'remove' : 'add';\n    // Items stay as the user wrote them; the sub-workflow resolves them on Yahoo.\n    // Older-style \"symbols\" output is accepted too.\n    const raw = [...(Array.isArray(w.items) ? w.items : []), ...(Array.isArray(w.symbols) ? w.symbols : [])];\n    const items = [...new Set(raw.map(x => str(x).replace(/^\\$/, '').slice(0, 40))\n      .filter(x => x && !/^(unknown|none|null|n\\/?a|tbd)$/i.test(x)))].slice(0, 20);\n    if (!items.length) return clarify(`Which stocks should I ${action} ${action === 'add' ? 'to' : 'from'} your watchlist?`);\n    return out('watchlist', { watchlist: { action, items } });\n  }\n  case 'question':\n    // The answer sub-workflow reads the database and computes; nothing to validate here.\n    return out('question', { question: { text: ctx.text, scenario: [] } });\n  case 'what_if': {\n    const list = (Array.isArray(p.what_if) ? p.what_if : p.what_if ? [p.what_if] : []).slice(0, 5);\n    const scenario = [];\n    for (const w of list) {\n      const symbol = str(w?.symbol).toUpperCase().replace(/^\\$/, '');\n      const price = num(w?.price), change_pct = num(w?.change_pct);\n      if (!TICKER.test(symbol)) continue;\n      if (price != null && price > 0 && grounded(price)) scenario.push({ symbol, price, change_pct: null });\n      else if (change_pct != null && grounded(Math.abs(change_pct))) scenario.push({ symbol, price: null, change_pct });\n    }\n    if (!scenario.length) return clarify('Which stock and which price (or % change) should I use? For example: \"What if AAPL reaches 400 USD?\"');\n    return out('what_if', { question: { text: ctx.text, scenario } });\n  }\n  case 'sell': {\n    // The code, not the LLM, works out quantity, price, proceeds and the FX conversion.\n    const w = p.sell ?? {};\n    const symbol = str(w.symbol).toUpperCase().replace(/^\\$/, '');\n    const pos = (ctx.owned ?? []).find(o => o.symbol === symbol);\n    const ownedList = (ctx.owned ?? []).map(o => o.symbol).join(', ') || 'none';\n    if (!pos) return clarify(symbol ? `You don't hold ${symbol}. Your stocks: ${ownedList}. Which one did you sell?`\n                                    : `Which stock did you sell? Your stocks: ${ownedList}. One stock at a time, please.`);\n    const held = Number(pos.quantity);\n    let quantity = num(w.quantity);\n    const all = w.all === true || quantity == null;\n    if (all) quantity = held;\n    else if (!grounded(quantity)) return clarify(`How many ${symbol} shares did you sell? You hold ${held}.`);\n    if (!(quantity > 0) || quantity > held) return clarify(`You hold ${held} ${symbol}; how many did you sell?`);\n    let price = num(w.price), price_source = 'given';\n    if (price != null && !grounded(price)) price = null;\n    if (price == null) {\n      if (pos.price == null || pos.price_status === 'unavailable') return clarify(`I have no current price for ${symbol}. At what price per share did you sell?`);\n      price = Number(pos.price); price_source = 'current';\n    }\n    const price_currency = pos.price_currency ?? 'USD';\n    const accounts = ctx.accounts ?? [];\n    const wanted = str(w.account).toLowerCase();\n    const acc = wanted ? accounts.find(a => a.name.toLowerCase() === wanted)\n                         ?? accounts.find(a => a.name.toLowerCase().includes(wanted) || wanted.includes(a.name.toLowerCase()))\n                       : null;\n    if (!acc) return clarify(`Which account should the money go to? ${accounts.length ? 'Your accounts: ' + accounts.map(a => a.name).join(', ') : 'Add an account first.'}`);\n    const fx = ctx.fx ?? {};\n    const round2 = n => Math.round(n * 100) / 100;\n    const proceeds = round2(quantity * price);\n    const rate = acc.currency === price_currency ? 1 : (fx[price_currency] && fx[acc.currency] ? fx[price_currency] / fx[acc.currency] : null);\n    if (rate == null) return clarify(`I have no ${price_currency}→${acc.currency} exchange rate yet. Please try again after the next price refresh.`);\n    return out('sell', { record: { type: 'sale', fields: {\n      symbol, quantity, all: quantity === held, price, price_currency, price_source, proceeds,\n      account_id: acc.id, account_name: acc.name, account_currency: acc.currency,\n      proceeds_account: round2(proceeds * rate) } } });\n  }\n  case 'list':\n    return out('list', { list_currency: cur(p.list?.currency) });\n  case 'chat':\n    return out('chat');\n  case 'help':\n    return out(p.intent);\n  case 'clarify':\n    return clarify(str(p.question) || 'Could you give me a bit more detail?');\n  default:\n    return out('help');\n}\n"
       },
-      "name": "Validate AI JSON",
-      "id": "020c5fc8-b47e-52b9-8ca8-6dadb1ebcf8f",
+      "name": "Check AI JSON against the message",
+      "id": "70fd816e-c762-5cb5-9b78-cee618508b5e",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -481,7 +481,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "d5e3ac28-c756-5ea7-947b-42dffd2a68b3",
+                    "id": "02cb0488-f17d-5a06-8986-3eeea9046f75",
                     "leftValue": "={{ $json.intent }}",
                     "rightValue": "record",
                     "operator": {
@@ -504,7 +504,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "9e34c588-f440-5a6d-800d-350c2cf5b5b7",
+                    "id": "bc11cb7e-82ab-5411-b830-acef9c0f8011",
                     "leftValue": "={{ $json.intent }}",
                     "rightValue": "analyse",
                     "operator": {
@@ -527,7 +527,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "1b6c6ad1-5f58-5071-8c8e-dee7ab8a3b6d",
+                    "id": "b5cbab28-7ac3-56d7-9875-29d96c283d6c",
                     "leftValue": "={{ $json.intent }}",
                     "rightValue": "rank",
                     "operator": {
@@ -550,7 +550,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "32733b5f-b1c2-5232-9c5e-a38ee3beb0eb",
+                    "id": "9b5ec195-e228-5701-bf64-49afa29c286e",
                     "leftValue": "={{ $json.intent }}",
                     "rightValue": "list",
                     "operator": {
@@ -573,7 +573,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "7e22ca72-8dcd-5df5-a185-36cc3df4275c",
+                    "id": "8e70bbd2-0944-5ee8-b181-8ee15252f6c8",
                     "leftValue": "={{ $json.intent }}",
                     "rightValue": "help",
                     "operator": {
@@ -596,7 +596,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "784d3980-21d3-5009-ad58-9a75ae85ed7d",
+                    "id": "50cf031b-6dc6-5704-8ff4-834cdcd09236",
                     "leftValue": "={{ $json.intent }}",
                     "rightValue": "clarify",
                     "operator": {
@@ -619,7 +619,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "dd93d648-fcb3-54ca-b18d-b31161557560",
+                    "id": "1a648f10-a3f0-5b71-a723-4c37b111f64e",
                     "leftValue": "={{ $json.intent }}",
                     "rightValue": "watchlist",
                     "operator": {
@@ -642,7 +642,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "faa1ff08-5e88-5c16-95dd-630579080788",
+                    "id": "2b72e074-aeea-5e35-bf6b-6e571cae1b05",
                     "leftValue": "={{ $json.intent }}",
                     "rightValue": "sell",
                     "operator": {
@@ -665,7 +665,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "06fb6051-851a-58c3-8ecf-d8dffdcbdaa3",
+                    "id": "a7b0ac04-cad9-5e23-8519-2c0b9c1c308a",
                     "leftValue": "={{ $json.intent }}",
                     "rightValue": "question",
                     "operator": {
@@ -688,7 +688,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "ee7f69a8-0dfe-521f-9e80-8e50e0502e5b",
+                    "id": "c11bbeb1-6042-5ac7-8cf1-805249aed8f0",
                     "leftValue": "={{ $json.intent }}",
                     "rightValue": "what_if",
                     "operator": {
@@ -711,7 +711,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "41cafaa7-70b0-54b8-95cb-6f2fc9c11d5d",
+                    "id": "37df716d-a4f4-5aba-bc6c-f4ec5aa53ec9",
                     "leftValue": "={{ $json.intent }}",
                     "rightValue": "chat",
                     "operator": {
@@ -734,7 +734,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "6386654e-a983-5089-96d7-19b040b57dc8",
+                    "id": "c36e4392-f46b-545a-91dc-c44136a83765",
                     "leftValue": "={{ $json.intent }}",
                     "rightValue": "scan",
                     "operator": {
@@ -757,7 +757,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "f8bda6e9-61de-540f-a1ad-36314bc8e1d0",
+                    "id": "33379cbd-6ea0-5c28-8873-bc202e3016c8",
                     "leftValue": "={{ $json.intent }}",
                     "rightValue": "scan_ask",
                     "operator": {
@@ -780,7 +780,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "bbb5e188-3b96-5bc0-bf2d-9895c09058c5",
+                    "id": "a166f814-6527-5506-9326-d12bd1d767f5",
                     "leftValue": "={{ $json.intent }}",
                     "rightValue": "scan_cancel",
                     "operator": {
@@ -800,8 +800,8 @@
           "fallbackOutput": "extra"
         }
       },
-      "name": "Switch: intent",
-      "id": "420e987c-2c0d-53a5-9820-52a67330ab58",
+      "name": "Route by intent",
+      "id": "6fd0ee3f-8a28-57b5-8d9e-c6c0e2414b8b",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
@@ -813,8 +813,8 @@
       "parameters": {
         "jsCode": "// Shape the item for a sub-workflow (its trigger receives it as-is).\nconst c = $json;\nconst mode = { record: 'propose', sell: 'propose', analyse: 'single', rank: 'rank', watchlist: 'watchlist',\n               question: 'question', what_if: 'what_if' }[c.intent] ?? c.route; // confirm | cancel\nreturn [{ json: { mode,\n  user_id: c.user_id, request_id: c.request_id, event_id: c.event_id,\n  record: c.record, analysis: c.analysis, watchlist: c.watchlist, question: c.question } }];\n"
       },
-      "name": "Prepare record",
-      "id": "49f1fa08-8220-5edf-8477-b085f37fb5b3",
+      "name": "Prepare record input",
+      "id": "b7a28e96-1855-5953-b354-fffcd7a58c25",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -892,21 +892,21 @@
         },
         "options": {}
       },
-      "name": "Record financial entry",
-      "id": "ac84738d-800f-53c5-824a-d1ba924e3921",
+      "name": "Run sub: save financial record",
+      "id": "e84d1496-91a0-5177-a4b6-d8afb4bdd5ac",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
         3200,
-        -60
+        -160
       ]
     },
     {
       "parameters": {
         "jsCode": "// Shape the item for a sub-workflow (its trigger receives it as-is).\nconst c = $json;\nconst mode = { record: 'propose', sell: 'propose', analyse: 'single', rank: 'rank', watchlist: 'watchlist',\n               question: 'question', what_if: 'what_if' }[c.intent] ?? c.route; // confirm | cancel\nreturn [{ json: { mode,\n  user_id: c.user_id, request_id: c.request_id, event_id: c.event_id,\n  record: c.record, analysis: c.analysis, watchlist: c.watchlist, question: c.question } }];\n"
       },
-      "name": "Prepare analysis",
-      "id": "b5f3454e-4fe2-5a5b-8f3f-b1edbe474ff4",
+      "name": "Prepare analysis input",
+      "id": "7fc4823a-ef76-5308-8c61-16bd288bfb6c",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -984,8 +984,8 @@
         },
         "options": {}
       },
-      "name": "Analyse US stock",
-      "id": "2200d25a-39ed-5a1f-918a-2f6034bae5f7",
+      "name": "Run sub: analyse stocks",
+      "id": "dfbc1ee0-cabc-5d7c-852e-61e68ca2a414",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
@@ -1001,8 +1001,8 @@
           "queryReplacement": "={{ JSON.stringify({ user_id: $json.user_id }) }}"
         }
       },
-      "name": "List records",
-      "id": "83d74636-650f-538c-9f52-ff9827fcd58c",
+      "name": "DB: list accounts, debts, stocks",
+      "id": "fbf42cfe-9203-5aad-9dc4-98541845b700",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -1021,10 +1021,10 @@
     },
     {
       "parameters": {
-        "jsCode": "const c = $('Validate AI JSON').first().json;\nconst money = (n, cur) => new Intl.NumberFormat('en-US',\n  { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n)) + ' ' + cur;\nconst { totals, items, usd_per_unit: fx } = $json;\n// Optional display currency (\"net worth in TRY\"): convert the base-currency totals.\nconst want = c.list_currency && fx?.[c.list_currency] && fx?.[totals.base_currency] ? c.list_currency : null;\nconst conv = n => want ? Number(n) * fx[totals.base_currency] / fx[want] : Number(n);\nconst show = want ?? totals.base_currency;\nconst NAMES = { cash: 'Cash', other: 'Other asset', stock: 'Stock', liability: 'Debt' };\nconst lines = items.length\n  ? items.map(i => `• ${NAMES[i.category] ?? i.category}: ${i.label} — ${i.unpriced ? 'no price' : money(i.amount, i.currency)}`\n      + (i.currency !== i.base_currency && !i.unpriced ? ` (≈ ${money(Math.abs(i.base_amount), i.base_currency)})` : ''))\n  : ['No records yet.'];\nlines.push('', `Assets ${money(conv(totals.total_assets), show)} − Liabilities ${money(conv(totals.total_liabilities), show)} = Net worth ${money(conv(totals.net_worth), show)}`);\nif (c.list_currency && !want) lines.push(`(No exchange rate for ${c.list_currency}; shown in ${totals.base_currency}.)`);\nreturn [{ json: { intent: 'list', status: 'done', reply: lines.join('\\n'), data: { totals, items } } }];\n"
+        "jsCode": "const c = $('Check AI JSON against the message').first().json;\nconst money = (n, cur) => new Intl.NumberFormat('en-US',\n  { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n)) + ' ' + cur;\nconst { totals, items, usd_per_unit: fx } = $json;\n// Optional display currency (\"net worth in TRY\"): convert the base-currency totals.\nconst want = c.list_currency && fx?.[c.list_currency] && fx?.[totals.base_currency] ? c.list_currency : null;\nconst conv = n => want ? Number(n) * fx[totals.base_currency] / fx[want] : Number(n);\nconst show = want ?? totals.base_currency;\nconst NAMES = { cash: 'Cash', other: 'Other asset', stock: 'Stock', liability: 'Debt' };\nconst lines = items.length\n  ? items.map(i => `• ${NAMES[i.category] ?? i.category}: ${i.label} — ${i.unpriced ? 'no price' : money(i.amount, i.currency)}`\n      + (i.currency !== i.base_currency && !i.unpriced ? ` (≈ ${money(Math.abs(i.base_amount), i.base_currency)})` : ''))\n  : ['No records yet.'];\nlines.push('', `Assets ${money(conv(totals.total_assets), show)} − Liabilities ${money(conv(totals.total_liabilities), show)} = Net worth ${money(conv(totals.net_worth), show)}`);\nif (c.list_currency && !want) lines.push(`(No exchange rate for ${c.list_currency}; shown in ${totals.base_currency}.)`);\nreturn [{ json: { intent: 'list', status: 'done', reply: lines.join('\\n'), data: { totals, items } } }];\n"
       },
-      "name": "Format list",
-      "id": "d0fab807-79ad-5041-a093-d547faf63ee6",
+      "name": "Format the list",
+      "id": "4c8c0b06-5444-5d14-86ee-b5a6f5c0f1d2",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -1036,8 +1036,8 @@
       "parameters": {
         "jsCode": "const c = $json;\nif (c.route === 'no_pending') {\n  return [{ json: { intent: 'confirm', status: 'done', data: null,\n    reply: 'There is nothing waiting for confirmation.' } }];\n}\nif (c.intent === 'clarify') {\n  return [{ json: { intent: 'clarify', status: 'done', data: c.parse_error ? { parse_error: c.parse_error } : null, reply: c.question } }];\n}\nreturn [{ json: { intent: 'help', status: 'done', data: null, reply: `I can help with:\n• Records: \"I owe Benjamin EUR 1,000\", \"I own 10 AAPL shares at USD 180\", \"I have USD 2,000 in Revolut\"\n• Watchlist: \"Add Nvidia, Palantir and Cloudflare to my watchlist\", \"Remove TSLA from my watchlist\"\n• Questions: \"How much of my portfolio is PLTR?\", \"What if AAPL reaches 400 USD?\"\n• Sales: \"I sold all my AAPL at the latest price, add it to Revolut\"\n• Listing: \"What is my net worth?\"\n• Analysis: \"Analyse AAPL using RSI and MACD\" (RSI, MACD, moving-average trend, volume)\n• Ranking: \"Top five in the demo universe\"\nI always ask before saving a record. This is a tracking and research tool, not investment advice.` } }];\n"
       },
-      "name": "Direct reply",
-      "id": "12e9fee2-e932-511a-a7cd-de75af13dd3f",
+      "name": "Reply text for help / clarify",
+      "id": "879a0a65-4776-576c-aae2-d213ad6d7acc",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -1048,7 +1048,7 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "={{ $('Pre-route').first().json.text }}",
+        "text": "={{ $('Build AI input, detect yes/no').first().json.text }}",
         "hasOutputParser": false,
         "messages": {
           "messageValues": [
@@ -1058,8 +1058,8 @@
           ]
         }
       },
-      "name": "Chat reply (AI)",
-      "id": "651c2d56-a5a7-59b6-9c41-c5aa4c8a6114",
+      "name": "AI: small-talk reply",
+      "id": "c66ecc58-4adc-56f6-9f19-047a195071be",
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.7,
       "position": [
@@ -1086,8 +1086,8 @@
           "extraBody": "={{ $env.YA_LLM_EXTRA_BODY || '{}' }}"
         }
       },
-      "name": "Chat model (chat)",
-      "id": "02d48f60-b14c-5ea3-a5d4-e471c9d423ab",
+      "name": "LLM for small talk",
+      "id": "bbf7fb98-7277-5ff2-9ab3-269bcc8d1dfa",
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.2,
       "position": [
@@ -1105,8 +1105,8 @@
       "parameters": {
         "jsCode": "// Plain reply; if the model failed, a short friendly fallback.\nconst text = String($json.text ?? '').trim();\nconst reply = text && !$json.error ? text : \"I'm here! Ask me about your accounts, stocks or a what-if, e.g. \\\"What is my net worth?\\\"\";\nreturn [{ json: { intent: 'chat', status: 'done', reply, data: null } }];\n"
       },
-      "name": "Format chat reply",
-      "id": "ea83d22a-d401-5b2f-a5cf-0c72b5122e75",
+      "name": "Format small-talk reply",
+      "id": "ff24289f-1c6b-523e-8e85-fb6b9d00d3cf",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -1118,8 +1118,8 @@
       "parameters": {
         "jsCode": "// Shape the item for a sub-workflow (its trigger receives it as-is).\nconst c = $json;\nconst mode = { record: 'propose', sell: 'propose', analyse: 'single', rank: 'rank', watchlist: 'watchlist',\n               question: 'question', what_if: 'what_if' }[c.intent] ?? c.route; // confirm | cancel\nreturn [{ json: { mode,\n  user_id: c.user_id, request_id: c.request_id, event_id: c.event_id,\n  record: c.record, analysis: c.analysis, watchlist: c.watchlist, question: c.question } }];\n"
       },
-      "name": "Prepare watchlist",
-      "id": "1a5925c2-4618-5474-9a76-d66b6e13bcf7",
+      "name": "Prepare watchlist input",
+      "id": "0bfdf70c-33ee-584c-b19c-a2d6857a7b86",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -1131,8 +1131,8 @@
       "parameters": {
         "jsCode": "// Shape the item for a sub-workflow (its trigger receives it as-is).\nconst c = $json;\nconst mode = { record: 'propose', sell: 'propose', analyse: 'single', rank: 'rank', watchlist: 'watchlist',\n               question: 'question', what_if: 'what_if' }[c.intent] ?? c.route; // confirm | cancel\nreturn [{ json: { mode,\n  user_id: c.user_id, request_id: c.request_id, event_id: c.event_id,\n  record: c.record, analysis: c.analysis, watchlist: c.watchlist, question: c.question } }];\n"
       },
-      "name": "Prepare question",
-      "id": "0a36ffa2-2453-5401-87aa-3cb36604ad40",
+      "name": "Prepare question input",
+      "id": "c36b7752-d2a0-57cd-b79f-002b73d25941",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -1210,8 +1210,8 @@
         },
         "options": {}
       },
-      "name": "Answer question",
-      "id": "41041db4-8000-59ef-9b5b-b773c8314e9c",
+      "name": "Run sub: answer question",
+      "id": "4f6872f1-c492-558f-ab8a-4b414456bc66",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
@@ -1289,8 +1289,8 @@
         },
         "options": {}
       },
-      "name": "Update watchlist",
-      "id": "8863d36a-f4f4-5ac4-8dd9-8f00ccd5e5c5",
+      "name": "Run sub: update watchlist",
+      "id": "e288e712-187f-5701-98ab-45f5a2cb774c",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
@@ -1302,8 +1302,8 @@
       "parameters": {
         "jsCode": "// Shape the item for a sub-workflow (its trigger receives it as-is).\nconst c = $json;\nconst mode = { record: 'propose', sell: 'propose', analyse: 'single', rank: 'rank', watchlist: 'watchlist',\n               question: 'question', what_if: 'what_if' }[c.intent] ?? c.route; // confirm | cancel\nreturn [{ json: { mode,\n  user_id: c.user_id, request_id: c.request_id, event_id: c.event_id,\n  record: c.record, analysis: c.analysis, watchlist: c.watchlist, question: c.question } }];\n"
       },
-      "name": "Prepare confirmation",
-      "id": "c6b35d15-b085-50b5-8683-567af0d1a6b5",
+      "name": "Prepare yes/no for pending record",
+      "id": "04464aa0-ec36-526d-baaa-c3ade56b0c56",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -1319,8 +1319,8 @@
           "queryReplacement": "={{ JSON.stringify({ user_id: $json.user_id }) }}"
         }
       },
-      "name": "Clear scan draft",
-      "id": "416efbb7-b10d-5359-bfef-e8e5746ef3d1",
+      "name": "DB: clear finished scan draft",
+      "id": "43d53f82-c126-5c87-b890-f8a95fb39c13",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -1340,10 +1340,10 @@
     },
     {
       "parameters": {
-        "jsCode": "const c = $('Validate AI JSON').first().json;\nreturn [{ json: { mode: c.analysis.mode, user_id: c.user_id, request_id: c.request_id, event_id: c.event_id,\n  analysis: c.analysis } }];\n"
+        "jsCode": "const c = $('Check AI JSON against the message').first().json;\nreturn [{ json: { mode: c.analysis.mode, user_id: c.user_id, request_id: c.request_id, event_id: c.event_id,\n  analysis: c.analysis } }];\n"
       },
-      "name": "Prepare scan",
-      "id": "a30699d6-e134-5747-992d-22d9fc9dfad7",
+      "name": "Prepare scan input",
+      "id": "2c5daf42-ba1d-54c4-ac16-5aa0e44390c6",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -1359,8 +1359,8 @@
           "queryReplacement": "={{ JSON.stringify({ user_id: $json.user_id, d: $json.scan_draft }) }}"
         }
       },
-      "name": "Save scan draft",
-      "id": "a0ff49e7-6170-5e98-81b4-79ebe3564b51",
+      "name": "DB: save unfinished scan",
+      "id": "4baacc70-5ee7-589f-82be-ecbc2614574c",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -1379,10 +1379,10 @@
     },
     {
       "parameters": {
-        "jsCode": "const c = $('Validate AI JSON').first().json;\nreturn [{ json: { intent: 'clarify', status: 'done', reply: c.question, data: { scan_draft: c.scan_draft } } }];\n"
+        "jsCode": "const c = $('Check AI JSON against the message').first().json;\nreturn [{ json: { intent: 'clarify', status: 'done', reply: c.question, data: { scan_draft: c.scan_draft } } }];\n"
       },
-      "name": "Ask scan question",
-      "id": "2325ff6d-cb36-5109-87a3-36b1825ed0f1",
+      "name": "Ask what the scan still needs",
+      "id": "c6d13de4-1e60-5527-92b0-00d15008df85",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -1398,8 +1398,8 @@
           "queryReplacement": "={{ JSON.stringify({ user_id: $json.user_id }) }}"
         }
       },
-      "name": "Drop scan draft",
-      "id": "6fc48176-40b5-5a9d-8280-64e7844c0d91",
+      "name": "DB: delete cancelled scan",
+      "id": "311b1965-7de3-5cab-8809-4407ebf31cb7",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -1421,8 +1421,8 @@
       "parameters": {
         "jsCode": "return [{ json: { intent: 'scan', status: 'done', reply: 'Okay, I dropped that scan. Nothing was run.', data: null } }];\n"
       },
-      "name": "Scan cancelled",
-      "id": "445a4418-3ce8-51d3-bc41-a2e3bb577056",
+      "name": "Reply: scan cancelled",
+      "id": "ef20e379-485c-5928-b934-c34d345927ec",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -1434,8 +1434,8 @@
       "parameters": {
         "jsCode": "return $input.all();   // every tool result passes through here"
       },
-      "name": "Collect result",
-      "id": "2257aa26-fabe-5006-91e0-dcc807c38b4f",
+      "name": "Collect tool result",
+      "id": "90001364-2008-56cf-b16e-43eb40e2ad0e",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -1446,7 +1446,7 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "={{ 'USER MESSAGE: ' + $('Pre-route').first().json.text + '\\nTOOL: ' + $json.intent + '\\nSTATUS: ' + $json.status + '\\nRESULT:\\n' + $json.reply }}",
+        "text": "={{ 'USER MESSAGE: ' + $('Build AI input, detect yes/no').first().json.text + '\\nTOOL: ' + $json.intent + '\\nSTATUS: ' + $json.status + '\\nRESULT:\\n' + $json.reply }}",
         "hasOutputParser": false,
         "messages": {
           "messageValues": [
@@ -1456,8 +1456,8 @@
           ]
         }
       },
-      "name": "Narrate reply (AI)",
-      "id": "f401cf98-a823-5f8b-84b0-cdc5602a6273",
+      "name": "AI 2: write the reply",
+      "id": "cb681d8a-58c2-59cf-bde9-6f720ef8404e",
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.7,
       "position": [
@@ -1484,8 +1484,8 @@
           "extraBody": "={{ $env.YA_LLM_EXTRA_BODY || '{}' }}"
         }
       },
-      "name": "Chat model (narrate)",
-      "id": "f94dc481-65c4-5a88-a4d6-0a414974832f",
+      "name": "LLM for AI 2",
+      "id": "920cc358-c85b-5961-948f-59c3d9b37b07",
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.2,
       "position": [
@@ -1501,10 +1501,10 @@
     },
     {
       "parameters": {
-        "jsCode": "function wordingProblems(text, ranked, single = false) {\n  const problems = [];\n  if (!text || !ranked?.length) return problems;\n  const esc = s => s.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');\n  const IND = /rsi|macd|trend|volume|sma|overbought|oversold/;\n  // \"not in a clear uptrend\", \"isn't oversold\": negated phrases say nothing about the stock.\n  const NEG = /\\b(not|no|never|isn['’]t|aren['’]t|without|lacks?)\\s+(yet\\s+)?(a\\s+|an\\s+|in\\s+a\\s+)?(clear\\s+|clean\\s+|strong\\s+|unusually\\s+)?(up-?trend|down-?trend|overbought|oversold|(heavy|high|strong)\\s+volume)/g;\n  const contradicts = (seg, c) => (seg = seg.replace(NEG, ' '),\n    (/\\bup-?trend/.test(seg) && c.ma_trend !== 1) ||\n    (/\\bdown-?trend/.test(seg) && c.ma_trend !== -1) ||\n    (/overbought/.test(seg) && c.rsi !== -1) ||\n    (/oversold/.test(seg) && c.rsi !== 1) ||\n    (/neutral to strong|50-70|50–70/.test(seg) && c.rsi !== 0) ||\n    (/rsi (over|above) 50/.test(seg) && c.rsi > 0) ||\n    (/rsi below 50|below neutral/.test(seg) && c.rsi <= 0) ||\n    (/(negative|falling|bearish)[^,;]{0,12}macd|macd[^,;]{0,25}(negative|falling|bearish)/.test(seg) && c.macd > 0) ||\n    (/(heavy|high|strong) volume/.test(seg) && !c.volume) ||\n    // a stock described by its indicators must not hide a negative one\n    (IND.test(seg) && ((c.rsi === -1 && !/overbought|above 70/.test(seg)) ||\n                       (c.macd === -1 && !/macd/.test(seg)) ||\n                       (c.ma_trend === -1 && !/downtrend/.test(seg)) ||\n                       (c.volume === -1 && !/down day/.test(seg)))));\n  // One analysed stock: the whole text is about it, symbol or not.\n  if (single) {\n    if (contradicts(text.toLowerCase(), ranked[0].contributions ?? {}))\n      problems.push(`${ranked[0].symbol}: wording does not match its indicators`);\n    return problems;\n  }\n  const units = text.split(/\\n+|(?<=[.!?])\\s+(?=[A-Z0-9])/);\n  for (const unit of units) {\n    const hits = ranked.map(x => ({ x, i: unit.search(new RegExp(`\\\\b${esc(x.symbol)}\\\\b`)) }))\n      .filter(h => h.i >= 0).sort((a, b) => a.i - b.i);\n    const segs = hits.map((h, j) => unit.slice(h.i, j + 1 < hits.length ? hits[j + 1].i : unit.length).toLowerCase());\n    for (let j = 0; j < hits.length; j++) {\n      // \"AMZN, JPM and MSFT ...\": a stock without its own words shares the next description\n      let k = j;\n      while (k < hits.length - 1 && !IND.test(segs[k])) k++;\n      const c = hits[j].x.contributions ?? {};\n      if (contradicts(segs[k], c)) problems.push(`${hits[j].x.symbol}: wording does not match its indicators`);\n    }\n  }\n  return [...new Set(problems)];\n}\n// Keep the LLM's wording only if every number in it exists in the tool result (or the\n// user's message). Otherwise, or if the model failed, fall back to the tool's own text.\nconst tool = $('Collect result').first().json;\n// Tidy the model's wording: no markdown, and no trailing \"Is this what you wanted?\" when\n// nothing needs answering (only confirmations and clarifications may end in a question).\nlet text = String($json.text ?? '').trim().replace(/\\*\\*(.+?)\\*\\*/g, '$1').replace(/^\\s*[*-]\\s+/gm, '• ');\nconst mayAsk = tool.status === 'awaiting_confirmation' || tool.intent === 'clarify' || /\\?\\s*$/.test(String(tool.reply ?? ''));\n// A scan question must offer exactly the app's options (no \"P/E ratio\" or \"dividend yield\").\nif (tool.data?.scan_draft) {\n  const opts = ['RSI', 'MACD', 'Trend', 'Volume', 'Demo 20', 'Dow 30', 'Nasdaq 100', 'S&P 500', 'NYSE']\n    .filter(o => String(tool.reply).includes(o));\n  const offTopic = /earnings|dividend|p\\/?e\\b|price-to|ratio|fundamental|revenue|market cap/i.test(text);\n  if (offTopic || !opts.every(o => text.toLowerCase().includes(o.toLowerCase()))) text = '';\n}\n// Nothing is waiting for a yes/no: drop invented \"confirm / save this\" sentences.\nif (tool.status !== 'awaiting_confirmation') {\n  text = text.split(/(?<=[.!?])\\s+/).filter(sn => !/\\b(confirm|save (this|the|it)|want to save)\\b/i.test(sn)).join(' ').trim() || text;\n}\nif (!mayAsk) {\n  for (let i = 0; i < 2 && /\\?\\s*$/.test(text); i++) {\n    const cut = text.replace(/\\s*[^.!?\\n]*\\?\\s*$/, '').trim();\n    if (!cut || cut === text) break;\n    text = cut;\n  }\n}\nconst source = String(tool.reply ?? '') + ' ' + $('Pre-route').first().json.text;\n// Numbers with their currency: \"107,065.00 USD\" in the result may not become \"107,065 EUR\".\nconst MULT = { k: 1e3, thousand: 1e3, m: 1e6, million: 1e6, bn: 1e9, billion: 1e9 };\nconst SYM = { '€': 'EUR', '$': 'USD', '£': 'GBP', '₺': 'TRY' };\nconst NUM = /([€$£₺])?\\s?(\\d[\\d,]*(?:\\.\\d+)?)(?:\\s*(thousand|million|billion|bn|k|m)\\b)?(?:\\s*(EUR|USD|TRY|GBP)\\b)?/gi;\nconst parse = m => {\n  const raw = m[2], n = Number(raw.replace(/,/g, ''));\n  const mult = MULT[String(m[3] ?? '').toLowerCase()] ?? 1;\n  return { raw, n, mult, value: n * mult, cur: (m[4] ?? '').toUpperCase() || SYM[m[1]] || null,\n           dec: raw.includes('.') ? raw.split('.')[1].length : 0 };\n};\nconst allowed = [...source.matchAll(NUM)].map(parse);\nconst bad = [];\nfor (const m of text.matchAll(NUM)) {\n  const t = parse(m);\n  if (!Number.isFinite(t.n)) continue;\n  if (!t.cur && t.mult === 1 && Number.isInteger(t.n) && (t.n <= 10 || (t.n >= 1990 && t.n <= 2100))) continue;   // small counts, years\n  const tol = Math.max(0.0051, 0.5 * Math.pow(10, -t.dec)) * t.mult;\n  const same = allowed.filter(a => Math.abs(a.value - t.value) <= tol);\n  // A currency in the narration must match the result's currency for that number\n  // (numbers the result writes without a currency accept any).\n  const ok = same.length > 0 && (!t.cur || same.some(a => !a.cur || a.cur === t.cur));\n  if (!ok) bad.push(m[0].trim());\n}\n// Help, chat and clarify answers run nothing: no \"Let's analyze DDOG…\" promise in their wording.\nif (['help', 'chat', 'clarify'].includes(tool.intent) &&\n    /\\b(let'?s|let me|i('ll| will| am going to)|i'?m going to)\\s+(analy[sz]e|scan|rank|check|run|look)/i.test(text))\n  bad.push('promises an action that did not run');\n// The narration may not claim an action the tool did not do (a new debt is not \"paid off\").\nconst ACTIONS = /\\b(paid off|repaid|paid back|settled|cleared|no longer owe|removed|deleted|sold|cancel+ed)\\b/gi;\nfor (const m of text.matchAll(ACTIONS)) {\n  const stem = m[1].toLowerCase().slice(0, 4);\n  if (!String(tool.reply ?? '').toLowerCase().includes(stem)) bad.push(`claims \"${m[1]}\" but the tool did not`);\n}\n// Scan rankings: the words used about each stock must match its computed contributions.\nconst ranked = tool.data?.analysis?.type === 'rank' ? (tool.data.analysis.ranked ?? []).slice(0, 10) : [];\nbad.push(...wordingProblems(text, ranked));\nconst one = tool.data?.analysis?.type === 'single' ? tool.data.analysis : null;\nif (one?.indicators) bad.push(...wordingProblems(text, [{ symbol: one.symbol, contributions:\n  Object.fromEntries(Object.entries(one.indicators).map(([k, v]) => [k, v.available === false ? null : v.contribution])) }], true));\nif (ranked.length && /\\b(the rest|remaining|all (the )?other|others)\\b[^.]{0,60}\\b(score|scores|have|has|show|are)\\b/i.test(text))\n  bad.push('claims about stocks that are not in the result');\nconst ok = text.length > 0 && !$json.error && bad.length === 0;\nreturn [{ json: { ...tool, reply: ok ? text : tool.reply,\n  data: { ...(tool.data ?? {}), narration: { by_llm: ok, rejected_numbers: bad } } } }];\n"
+        "jsCode": "function wordingProblems(text, ranked, single = false) {\n  const problems = [];\n  if (!text || !ranked?.length) return problems;\n  const esc = s => s.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');\n  const IND = /rsi|macd|trend|volume|sma|overbought|oversold/;\n  // \"not in a clear uptrend\", \"isn't oversold\": negated phrases say nothing about the stock.\n  const NEG = /\\b(not|no|never|isn['’]t|aren['’]t|without|lacks?)\\s+(yet\\s+)?(a\\s+|an\\s+|in\\s+a\\s+)?(clear\\s+|clean\\s+|strong\\s+|unusually\\s+)?(up-?trend|down-?trend|overbought|oversold|(heavy|high|strong)\\s+volume)/g;\n  const contradicts = (seg, c) => (seg = seg.replace(NEG, ' '),\n    (/\\bup-?trend/.test(seg) && c.ma_trend !== 1) ||\n    (/\\bdown-?trend/.test(seg) && c.ma_trend !== -1) ||\n    (/overbought/.test(seg) && c.rsi !== -1) ||\n    (/oversold/.test(seg) && c.rsi !== 1) ||\n    (/neutral to strong|50-70|50–70/.test(seg) && c.rsi !== 0) ||\n    (/rsi (over|above) 50/.test(seg) && c.rsi > 0) ||\n    (/rsi below 50|below neutral/.test(seg) && c.rsi <= 0) ||\n    (/(negative|falling|bearish)[^,;]{0,12}macd|macd[^,;]{0,25}(negative|falling|bearish)/.test(seg) && c.macd > 0) ||\n    (/(heavy|high|strong) volume/.test(seg) && !c.volume) ||\n    // a stock described by its indicators must not hide a negative one\n    (IND.test(seg) && ((c.rsi === -1 && !/overbought|above 70/.test(seg)) ||\n                       (c.macd === -1 && !/macd/.test(seg)) ||\n                       (c.ma_trend === -1 && !/downtrend/.test(seg)) ||\n                       (c.volume === -1 && !/down day/.test(seg)))));\n  // One analysed stock: the whole text is about it, symbol or not.\n  if (single) {\n    if (contradicts(text.toLowerCase(), ranked[0].contributions ?? {}))\n      problems.push(`${ranked[0].symbol}: wording does not match its indicators`);\n    return problems;\n  }\n  const units = text.split(/\\n+|(?<=[.!?])\\s+(?=[A-Z0-9])/);\n  for (const unit of units) {\n    const hits = ranked.map(x => ({ x, i: unit.search(new RegExp(`\\\\b${esc(x.symbol)}\\\\b`)) }))\n      .filter(h => h.i >= 0).sort((a, b) => a.i - b.i);\n    const segs = hits.map((h, j) => unit.slice(h.i, j + 1 < hits.length ? hits[j + 1].i : unit.length).toLowerCase());\n    for (let j = 0; j < hits.length; j++) {\n      // \"AMZN, JPM and MSFT ...\": a stock without its own words shares the next description\n      let k = j;\n      while (k < hits.length - 1 && !IND.test(segs[k])) k++;\n      const c = hits[j].x.contributions ?? {};\n      if (contradicts(segs[k], c)) problems.push(`${hits[j].x.symbol}: wording does not match its indicators`);\n    }\n  }\n  return [...new Set(problems)];\n}\n// Keep the LLM's wording only if every number in it exists in the tool result (or the\n// user's message). Otherwise, or if the model failed, fall back to the tool's own text.\nconst tool = $('Collect tool result').first().json;\n// Tidy the model's wording: no markdown, and no trailing \"Is this what you wanted?\" when\n// nothing needs answering (only confirmations and clarifications may end in a question).\nlet text = String($json.text ?? '').trim().replace(/\\*\\*(.+?)\\*\\*/g, '$1').replace(/^\\s*[*-]\\s+/gm, '• ');\nconst mayAsk = tool.status === 'awaiting_confirmation' || tool.intent === 'clarify' || /\\?\\s*$/.test(String(tool.reply ?? ''));\n// A scan question must offer exactly the app's options (no \"P/E ratio\" or \"dividend yield\").\nif (tool.data?.scan_draft) {\n  const opts = ['RSI', 'MACD', 'Trend', 'Volume', 'Demo 20', 'Dow 30', 'Nasdaq 100', 'S&P 500', 'NYSE']\n    .filter(o => String(tool.reply).includes(o));\n  const offTopic = /earnings|dividend|p\\/?e\\b|price-to|ratio|fundamental|revenue|market cap/i.test(text);\n  if (offTopic || !opts.every(o => text.toLowerCase().includes(o.toLowerCase()))) text = '';\n}\n// Nothing is waiting for a yes/no: drop invented \"confirm / save this\" sentences.\nif (tool.status !== 'awaiting_confirmation') {\n  text = text.split(/(?<=[.!?])\\s+/).filter(sn => !/\\b(confirm|save (this|the|it)|want to save)\\b/i.test(sn)).join(' ').trim() || text;\n}\nif (!mayAsk) {\n  for (let i = 0; i < 2 && /\\?\\s*$/.test(text); i++) {\n    const cut = text.replace(/\\s*[^.!?\\n]*\\?\\s*$/, '').trim();\n    if (!cut || cut === text) break;\n    text = cut;\n  }\n}\nconst source = String(tool.reply ?? '') + ' ' + $('Build AI input, detect yes/no').first().json.text;\n// Numbers with their currency: \"107,065.00 USD\" in the result may not become \"107,065 EUR\".\nconst MULT = { k: 1e3, thousand: 1e3, m: 1e6, million: 1e6, bn: 1e9, billion: 1e9 };\nconst SYM = { '€': 'EUR', '$': 'USD', '£': 'GBP', '₺': 'TRY' };\nconst NUM = /([€$£₺])?\\s?(\\d[\\d,]*(?:\\.\\d+)?)(?:\\s*(thousand|million|billion|bn|k|m)\\b)?(?:\\s*(EUR|USD|TRY|GBP)\\b)?/gi;\nconst parse = m => {\n  const raw = m[2], n = Number(raw.replace(/,/g, ''));\n  const mult = MULT[String(m[3] ?? '').toLowerCase()] ?? 1;\n  return { raw, n, mult, value: n * mult, cur: (m[4] ?? '').toUpperCase() || SYM[m[1]] || null,\n           dec: raw.includes('.') ? raw.split('.')[1].length : 0 };\n};\nconst allowed = [...source.matchAll(NUM)].map(parse);\nconst bad = [];\nfor (const m of text.matchAll(NUM)) {\n  const t = parse(m);\n  if (!Number.isFinite(t.n)) continue;\n  if (!t.cur && t.mult === 1 && Number.isInteger(t.n) && (t.n <= 10 || (t.n >= 1990 && t.n <= 2100))) continue;   // small counts, years\n  const tol = Math.max(0.0051, 0.5 * Math.pow(10, -t.dec)) * t.mult;\n  const same = allowed.filter(a => Math.abs(a.value - t.value) <= tol);\n  // A currency in the narration must match the result's currency for that number\n  // (numbers the result writes without a currency accept any).\n  const ok = same.length > 0 && (!t.cur || same.some(a => !a.cur || a.cur === t.cur));\n  if (!ok) bad.push(m[0].trim());\n}\n// Help, chat and clarify answers run nothing: no \"Let's analyze DDOG…\" promise in their wording.\nif (['help', 'chat', 'clarify'].includes(tool.intent) &&\n    /\\b(let'?s|let me|i('ll| will| am going to)|i'?m going to)\\s+(analy[sz]e|scan|rank|check|run|look)/i.test(text))\n  bad.push('promises an action that did not run');\n// The narration may not claim an action the tool did not do (a new debt is not \"paid off\").\nconst ACTIONS = /\\b(paid off|repaid|paid back|settled|cleared|no longer owe|removed|deleted|sold|cancel+ed)\\b/gi;\nfor (const m of text.matchAll(ACTIONS)) {\n  const stem = m[1].toLowerCase().slice(0, 4);\n  if (!String(tool.reply ?? '').toLowerCase().includes(stem)) bad.push(`claims \"${m[1]}\" but the tool did not`);\n}\n// Scan rankings: the words used about each stock must match its computed contributions.\nconst ranked = tool.data?.analysis?.type === 'rank' ? (tool.data.analysis.ranked ?? []).slice(0, 10) : [];\nbad.push(...wordingProblems(text, ranked));\nconst one = tool.data?.analysis?.type === 'single' ? tool.data.analysis : null;\nif (one?.indicators) bad.push(...wordingProblems(text, [{ symbol: one.symbol, contributions:\n  Object.fromEntries(Object.entries(one.indicators).map(([k, v]) => [k, v.available === false ? null : v.contribution])) }], true));\nif (ranked.length && /\\b(the rest|remaining|all (the )?other|others)\\b[^.]{0,60}\\b(score|scores|have|has|show|are)\\b/i.test(text))\n  bad.push('claims about stocks that are not in the result');\nconst ok = text.length > 0 && !$json.error && bad.length === 0;\nreturn [{ json: { ...tool, reply: ok ? text : tool.reply,\n  data: { ...(tool.data ?? {}), narration: { by_llm: ok, rejected_numbers: bad } } } }];\n"
       },
-      "name": "Check narration",
-      "id": "43048fa9-e991-59a3-b404-000030c0228d",
+      "name": "Check reply numbers (fallback)",
+      "id": "8fbff4f2-2c74-5760-aa0a-e65da28f9af0",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -1517,11 +1517,11 @@
         "operation": "executeQuery",
         "query": "update request_log set\n    status = $1::jsonb->>'status',\n    intent = $1::jsonb->>'intent',\n    response = $1::jsonb->'response',\n    updated_at = now()\nwhere id = ($1::jsonb->>'request_id')::uuid\nreturning response;",
         "options": {
-          "queryReplacement": "={{ JSON.stringify({ request_id: $('Pre-route').first().json.request_id, status: $json.status, intent: $json.intent, response: { ok: true, event_id: $('Pre-route').first().json.event_id, intent: $json.intent, status: $json.status, reply: $json.reply, data: $json.data ?? null } }) }}"
+          "queryReplacement": "={{ JSON.stringify({ request_id: $('Build AI input, detect yes/no').first().json.request_id, status: $json.status, intent: $json.intent, response: { ok: true, event_id: $('Build AI input, detect yes/no').first().json.event_id, intent: $json.intent, status: $json.status, reply: $json.reply, data: $json.data ?? null } }) }}"
         }
       },
-      "name": "Finish request",
-      "id": "1a34b014-c1c0-5a71-b60d-380964164811",
+      "name": "DB: save reply, mark done",
+      "id": "7cfb1a57-0ac3-5db9-8725-5edeab3992e2",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -1546,8 +1546,8 @@
           "responseCode": 200
         }
       },
-      "name": "Respond reply",
-      "id": "257cb9df-30f3-549f-ae34-9fb3eeeb3516",
+      "name": "Reply to chat",
+      "id": "16d9e3b1-e90f-5ea7-b4e7-6f208d038d2f",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
@@ -1557,584 +1557,584 @@
     }
   ],
   "connections": {
-    "POST /ya-chat": {
+    "Trigger: chat message (POST /ya-chat)": {
       "main": [
         [
           {
-            "node": "Auth user",
+            "node": "DB: find user by token",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Auth user": {
+    "DB: find user by token": {
       "main": [
         [
           {
-            "node": "If: authenticated?",
+            "node": "Token valid?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "If: authenticated?": {
+    "Token valid?": {
       "main": [
         [
           {
-            "node": "Validate message",
+            "node": "Check message format",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Respond 401",
+            "node": "Reply 401: invalid token",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Validate message": {
+    "Check message format": {
       "main": [
         [
           {
-            "node": "If: message valid?",
+            "node": "Message format OK?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "If: message valid?": {
+    "Message format OK?": {
       "main": [
         [
           {
-            "node": "Register request",
+            "node": "DB: log message (dedup by event_id)",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Respond 400",
+            "node": "Reply 400: invalid message",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Register request": {
+    "DB: log message (dedup by event_id)": {
       "main": [
         [
           {
-            "node": "If: new event?",
+            "node": "New message, not a duplicate?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "If: new event?": {
+    "New message, not a duplicate?": {
       "main": [
         [
           {
-            "node": "Load context",
+            "node": "DB: load chat memory and context",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Replay stored reply",
+            "node": "Get stored reply of duplicate",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Replay stored reply": {
+    "Get stored reply of duplicate": {
       "main": [
         [
           {
-            "node": "Respond replay",
+            "node": "Reply: stored answer again",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Load context": {
+    "DB: load chat memory and context": {
       "main": [
         [
           {
-            "node": "Pre-route",
+            "node": "Build AI input, detect yes/no",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Pre-route": {
+    "Build AI input, detect yes/no": {
       "main": [
         [
           {
-            "node": "Switch: route",
+            "node": "Route: yes / no / new request",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Switch: route": {
+    "Route: yes / no / new request": {
       "main": [
         [
           {
-            "node": "Parse request (AI)",
+            "node": "AI 1: choose the tool (JSON)",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Prepare confirmation",
+            "node": "Prepare yes/no for pending record",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Prepare confirmation",
+            "node": "Prepare yes/no for pending record",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Direct reply",
+            "node": "Reply text for help / clarify",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Parse request (AI)": {
+    "AI 1: choose the tool (JSON)": {
       "main": [
         [
           {
-            "node": "Validate AI JSON",
+            "node": "Check AI JSON against the message",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Validate AI JSON": {
+    "Check AI JSON against the message": {
       "main": [
         [
           {
-            "node": "Switch: intent",
+            "node": "Route by intent",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Switch: intent": {
+    "Route by intent": {
       "main": [
         [
           {
-            "node": "Prepare record",
+            "node": "Prepare record input",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Prepare analysis",
+            "node": "Prepare analysis input",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Prepare analysis",
+            "node": "Prepare analysis input",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "List records",
+            "node": "DB: list accounts, debts, stocks",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Direct reply",
+            "node": "Reply text for help / clarify",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Direct reply",
+            "node": "Reply text for help / clarify",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Prepare watchlist",
+            "node": "Prepare watchlist input",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Prepare record",
+            "node": "Prepare record input",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Prepare question",
+            "node": "Prepare question input",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Prepare question",
+            "node": "Prepare question input",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Chat reply (AI)",
+            "node": "AI: small-talk reply",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Clear scan draft",
+            "node": "DB: clear finished scan draft",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Save scan draft",
+            "node": "DB: save unfinished scan",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Drop scan draft",
+            "node": "DB: delete cancelled scan",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Clear scan draft": {
+    "DB: clear finished scan draft": {
       "main": [
         [
           {
-            "node": "Prepare scan",
+            "node": "Prepare scan input",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Prepare scan": {
+    "Prepare scan input": {
       "main": [
         [
           {
-            "node": "Analyse US stock",
+            "node": "Run sub: analyse stocks",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Save scan draft": {
+    "DB: save unfinished scan": {
       "main": [
         [
           {
-            "node": "Ask scan question",
+            "node": "Ask what the scan still needs",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Ask scan question": {
+    "Ask what the scan still needs": {
       "main": [
         [
           {
-            "node": "Collect result",
+            "node": "Collect tool result",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Drop scan draft": {
+    "DB: delete cancelled scan": {
       "main": [
         [
           {
-            "node": "Scan cancelled",
+            "node": "Reply: scan cancelled",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Scan cancelled": {
+    "Reply: scan cancelled": {
       "main": [
         [
           {
-            "node": "Collect result",
+            "node": "Collect tool result",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Chat reply (AI)": {
+    "AI: small-talk reply": {
       "main": [
         [
           {
-            "node": "Format chat reply",
+            "node": "Format small-talk reply",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Format chat reply": {
+    "Format small-talk reply": {
       "main": [
         [
           {
-            "node": "Finish request",
+            "node": "DB: save reply, mark done",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Collect result": {
+    "Collect tool result": {
       "main": [
         [
           {
-            "node": "Narrate reply (AI)",
+            "node": "AI 2: write the reply",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Narrate reply (AI)": {
+    "AI 2: write the reply": {
       "main": [
         [
           {
-            "node": "Check narration",
+            "node": "Check reply numbers (fallback)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Check narration": {
+    "Check reply numbers (fallback)": {
       "main": [
         [
           {
-            "node": "Finish request",
+            "node": "DB: save reply, mark done",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Prepare question": {
+    "Prepare question input": {
       "main": [
         [
           {
-            "node": "Answer question",
+            "node": "Run sub: answer question",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Answer question": {
+    "Run sub: answer question": {
       "main": [
         [
           {
-            "node": "Collect result",
+            "node": "Collect tool result",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Prepare watchlist": {
+    "Prepare watchlist input": {
       "main": [
         [
           {
-            "node": "Update watchlist",
+            "node": "Run sub: update watchlist",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Update watchlist": {
+    "Run sub: update watchlist": {
       "main": [
         [
           {
-            "node": "Collect result",
+            "node": "Collect tool result",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Prepare record": {
+    "Prepare record input": {
       "main": [
         [
           {
-            "node": "Record financial entry",
+            "node": "Run sub: save financial record",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Prepare confirmation": {
+    "Prepare yes/no for pending record": {
       "main": [
         [
           {
-            "node": "Record financial entry",
+            "node": "Run sub: save financial record",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Prepare analysis": {
+    "Prepare analysis input": {
       "main": [
         [
           {
-            "node": "Analyse US stock",
+            "node": "Run sub: analyse stocks",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "List records": {
+    "DB: list accounts, debts, stocks": {
       "main": [
         [
           {
-            "node": "Format list",
+            "node": "Format the list",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Record financial entry": {
+    "Run sub: save financial record": {
       "main": [
         [
           {
-            "node": "Collect result",
+            "node": "Collect tool result",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Analyse US stock": {
+    "Run sub: analyse stocks": {
       "main": [
         [
           {
-            "node": "Collect result",
+            "node": "Collect tool result",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Format list": {
+    "Format the list": {
       "main": [
         [
           {
-            "node": "Collect result",
+            "node": "Collect tool result",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Direct reply": {
+    "Reply text for help / clarify": {
       "main": [
         [
           {
-            "node": "Collect result",
+            "node": "Collect tool result",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Finish request": {
+    "DB: save reply, mark done": {
       "main": [
         [
           {
-            "node": "Respond reply",
+            "node": "Reply to chat",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Chat model (parse)": {
+    "LLM for AI 1": {
       "ai_languageModel": [
         [
           {
-            "node": "Parse request (AI)",
+            "node": "AI 1: choose the tool (JSON)",
             "type": "ai_languageModel",
             "index": 0
           }
         ]
       ]
     },
-    "Chat model (chat)": {
+    "LLM for small talk": {
       "ai_languageModel": [
         [
           {
-            "node": "Chat reply (AI)",
+            "node": "AI: small-talk reply",
             "type": "ai_languageModel",
             "index": 0
           }
         ]
       ]
     },
-    "Chat model (narrate)": {
+    "LLM for AI 2": {
       "ai_languageModel": [
         [
           {
-            "node": "Narrate reply (AI)",
+            "node": "AI 2: write the reply",
             "type": "ai_languageModel",
             "index": 0
           }

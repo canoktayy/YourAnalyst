@@ -1,6 +1,6 @@
 {
   "id": "YAwatchlist00001",
-  "name": "YA – Update watchlist",
+  "name": "YA 4 – Sub: add or remove watchlist stocks",
   "active": false,
   "nodes": [
     {
@@ -31,8 +31,8 @@
           ]
         }
       },
-      "name": "Start",
-      "id": "7dd09f10-3088-5f9b-9278-d26abd931e27",
+      "name": "Input: add or remove",
+      "id": "7d595116-0379-58f7-b2de-7854e7844009",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
       "position": [
@@ -53,7 +53,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "e8d48358-8b7c-55d1-bedd-ac7ca98b4cdf",
+                    "id": "2bd34c88-a244-52f1-a4a4-2d79a17cc7a8",
                     "leftValue": "={{ $json.watchlist.action }}",
                     "rightValue": "add",
                     "operator": {
@@ -76,7 +76,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "36f89d44-c696-54ec-90fd-cc9869551676",
+                    "id": "62704b38-018e-5839-ada0-5304f57a427a",
                     "leftValue": "={{ $json.watchlist.action }}",
                     "rightValue": "remove",
                     "operator": {
@@ -96,8 +96,8 @@
           "fallbackOutput": "extra"
         }
       },
-      "name": "Switch: action",
-      "id": "e7c62a43-7314-5f48-8a31-e2202ce3a1c5",
+      "name": "Route: add or remove",
+      "id": "5883712d-d2f0-57a5-93f7-97c8eaa18cc0",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
@@ -107,10 +107,10 @@
     },
     {
       "parameters": {
-        "jsCode": "const names = $('Start').first().json.watchlist.items;\nconst items = [];\nnames.forEach((name, n) => {\n  const base = name.toLowerCase().trim();\n  const variants = [...new Set([base, base.replace(/\\s+/g, ''), base.replace(/(.)\\1+/g, '$1'),\n                                base.replace(/\\s+/g, '').replace(/(.)\\1+/g, '$1')])];\n  variants.forEach((q, v) => items.push({ json: { n, name, v, q } }));\n});\nreturn items;\n"
+        "jsCode": "const names = $('Input: add or remove').first().json.watchlist.items;\nconst items = [];\nnames.forEach((name, n) => {\n  const base = name.toLowerCase().trim();\n  const variants = [...new Set([base, base.replace(/\\s+/g, ''), base.replace(/(.)\\1+/g, '$1'),\n                                base.replace(/\\s+/g, '').replace(/(.)\\1+/g, '$1')])];\n  variants.forEach((q, v) => items.push({ json: { n, name, v, q } }));\n});\nreturn items;\n"
       },
-      "name": "Split names",
-      "id": "830c549e-d912-51b8-8ef4-a01db0dc06e7",
+      "name": "One item per name",
+      "id": "ff84233a-25a0-59e3-b73a-3df6801b3221",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -157,8 +157,8 @@
           "timeout": 10000
         }
       },
-      "name": "Search name (Yahoo)",
-      "id": "404737c6-4922-5511-877d-76e2bb541966",
+      "name": "API: find ticker by name (Yahoo)",
+      "id": "c9c7bb9b-3f53-505f-963f-2820e607f4c7",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -172,10 +172,10 @@
     },
     {
       "parameters": {
-        "jsCode": "// For each name, take the first spelling that finds a US-listed equity.\nconst asked = $('Split names').all().map(i => i.json);\nconst US = ['NMS', 'NYQ', 'NGM', 'NCM', 'ASE', 'PCX', 'BTS', 'NAS'];\nconst best = {};\n$input.all().forEach((item, i) => {\n  const a = asked[item.pairedItem?.item ?? i];\n  const quotes = (item.json?.quotes ?? []).filter(q => q.quoteType === 'EQUITY' || q.quoteType === 'ETF');\n  const hit = quotes.find(q => US.includes(q.exchange)) ?? null;\n  if (hit && (!best[a.n] || a.v < best[a.n].v)) best[a.n] = { v: a.v, name: a.name, symbol: String(hit.symbol).toUpperCase() };\n});\nconst names = $('Start').first().json.watchlist.items;\nreturn [{ json: {\n  resolved: names.map((_, n) => best[n]).filter(Boolean).map(({ name, symbol }) => ({ name, symbol })),\n  unknown: names.filter((_, n) => !best[n]),\n} }];\n"
+        "jsCode": "// For each name, take the first spelling that finds a US-listed equity.\nconst asked = $('One item per name').all().map(i => i.json);\nconst US = ['NMS', 'NYQ', 'NGM', 'NCM', 'ASE', 'PCX', 'BTS', 'NAS'];\nconst best = {};\n$input.all().forEach((item, i) => {\n  const a = asked[item.pairedItem?.item ?? i];\n  const quotes = (item.json?.quotes ?? []).filter(q => q.quoteType === 'EQUITY' || q.quoteType === 'ETF');\n  const hit = quotes.find(q => US.includes(q.exchange)) ?? null;\n  if (hit && (!best[a.n] || a.v < best[a.n].v)) best[a.n] = { v: a.v, name: a.name, symbol: String(hit.symbol).toUpperCase() };\n});\nconst names = $('Input: add or remove').first().json.watchlist.items;\nreturn [{ json: {\n  resolved: names.map((_, n) => best[n]).filter(Boolean).map(({ name, symbol }) => ({ name, symbol })),\n  unknown: names.filter((_, n) => !best[n]),\n} }];\n"
       },
-      "name": "Merge resolved",
-      "id": "04de5b4e-76b1-5550-af48-c839ec6c3c5b",
+      "name": "Merge found tickers",
+      "id": "6928d110-b5e3-5607-b9d7-68d2c127b84c",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -185,10 +185,10 @@
     },
     {
       "parameters": {
-        "jsCode": "// One item per symbol so the HTTP node checks each ticker (an empty list still\n// yields one placeholder item, so the sub-workflow always answers).\nconst w = $('Start').first().json.watchlist;\nconst merged = $('Merge resolved').first().json;\nconst symbols = [...new Set(merged.resolved.map(r => r.symbol))];\nreturn symbols.length ? symbols.map(symbol => ({ json: { symbol } })) : [{ json: { symbol: null } }];\n"
+        "jsCode": "// One item per symbol so the HTTP node checks each ticker (an empty list still\n// yields one placeholder item, so the sub-workflow always answers).\nconst w = $('Input: add or remove').first().json.watchlist;\nconst merged = $('Merge found tickers').first().json;\nconst symbols = [...new Set(merged.resolved.map(r => r.symbol))];\nreturn symbols.length ? symbols.map(symbol => ({ json: { symbol } })) : [{ json: { symbol: null } }];\n"
       },
-      "name": "Split symbols",
-      "id": "54488fa8-f321-5804-8c50-2bfe67e0564e",
+      "name": "One item per ticker",
+      "id": "3a30a930-53e2-5daf-be80-b495ee332273",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -231,8 +231,8 @@
           "timeout": 10000
         }
       },
-      "name": "Check ticker (Yahoo)",
-      "id": "3c6dbf47-1533-57b6-9397-13a5fe68b01e",
+      "name": "API: check ticker exists (Yahoo)",
+      "id": "065c2f27-1f9e-514e-a8da-a927a87ad605",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -246,10 +246,10 @@
     },
     {
       "parameters": {
-        "jsCode": "// Keep only symbols Yahoo knows. Its own symbol and name win over the LLM's guess.\nconst w = $('Start').first().json.watchlist;\nconst merged = $('Merge resolved').first().json;\nconst asked = $('Split symbols').all().map(i => i.json.symbol);\nconst now = Date.now();\nconst found = [], missing = [];\n$input.all().forEach((item, i) => {\n  const symbol = asked[item.pairedItem?.item ?? i];\n  if (!symbol) return;\n  const meta = item.json?.chart?.result?.[0]?.meta;\n  const price = Number(meta?.regularMarketPrice);\n  const ts = Number(meta?.regularMarketTime) * 1000;\n  if (!meta || String(meta.symbol).toUpperCase() !== symbol || !(price > 0)) { missing.push(symbol); return; }\n  const prev = Number(meta.chartPreviousClose ?? meta.previousClose);\n  found.push({\n    symbol,\n    name: String(meta.longName ?? meta.shortName ?? '').slice(0, 80) || null,\n    price,\n    change_pct: prev > 0 ? Math.round((price / prev - 1) * 1e6) / 1e4 : null,\n    currency: /^[A-Z]{3}$/.test(meta.currency ?? '') ? meta.currency : 'USD',\n    as_of: Number.isFinite(ts) && ts <= now + 300000 ? new Date(ts).toISOString() : new Date(now).toISOString(),\n  });\n});\nreturn [{ json: { user_id: $('Start').first().json.user_id, found, missing,\n  resolved: merged.resolved, unknown: merged.unknown } }];\n"
+        "jsCode": "// Keep only symbols Yahoo knows. Its own symbol and name win over the LLM's guess.\nconst w = $('Input: add or remove').first().json.watchlist;\nconst merged = $('Merge found tickers').first().json;\nconst asked = $('One item per ticker').all().map(i => i.json.symbol);\nconst now = Date.now();\nconst found = [], missing = [];\n$input.all().forEach((item, i) => {\n  const symbol = asked[item.pairedItem?.item ?? i];\n  if (!symbol) return;\n  const meta = item.json?.chart?.result?.[0]?.meta;\n  const price = Number(meta?.regularMarketPrice);\n  const ts = Number(meta?.regularMarketTime) * 1000;\n  if (!meta || String(meta.symbol).toUpperCase() !== symbol || !(price > 0)) { missing.push(symbol); return; }\n  const prev = Number(meta.chartPreviousClose ?? meta.previousClose);\n  found.push({\n    symbol,\n    name: String(meta.longName ?? meta.shortName ?? '').slice(0, 80) || null,\n    price,\n    change_pct: prev > 0 ? Math.round((price / prev - 1) * 1e6) / 1e4 : null,\n    currency: /^[A-Z]{3}$/.test(meta.currency ?? '') ? meta.currency : 'USD',\n    as_of: Number.isFinite(ts) && ts <= now + 300000 ? new Date(ts).toISOString() : new Date(now).toISOString(),\n  });\n});\nreturn [{ json: { user_id: $('Input: add or remove').first().json.user_id, found, missing,\n  resolved: merged.resolved, unknown: merged.unknown } }];\n"
       },
-      "name": "Validate tickers",
-      "id": "9481f610-58f4-526a-8336-428bc9c27ee9",
+      "name": "Keep only valid tickers",
+      "id": "f783e05c-75fb-53ce-8367-08f0880684eb",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -265,8 +265,8 @@
           "queryReplacement": "={{ JSON.stringify($json) }}"
         }
       },
-      "name": "Save watchlist",
-      "id": "44287217-3067-5f1c-9da3-54d4d7c317f8",
+      "name": "DB: add to watchlist",
+      "id": "31207f38-2e74-53b5-b736-cb628e77e478",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -285,10 +285,10 @@
     },
     {
       "parameters": {
-        "jsCode": "const v = $('Validate tickers').first().json;\nconst added = new Set($json.added);\nconst money = (n, c) => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n) + ' ' + c;\nconst said = Object.fromEntries(v.resolved.map(r => [r.symbol, r.name]));\nconst fmt = f => `${f.symbol}${f.name ? ` (${f.name})` : ''}: ${money(f.price, f.currency)}`\n  + (f.change_pct != null ? ` (${f.change_pct >= 0 ? '+' : ''}${f.change_pct.toFixed(2)}%)` : '')\n  + (said[f.symbol] && said[f.symbol].toUpperCase() !== f.symbol ? `  ← \"${said[f.symbol]}\"` : '');\nconst lines = [];\nconst newOnes = v.found.filter(f => added.has(f.symbol));\nconst already = v.found.filter(f => !added.has(f.symbol));\nif (newOnes.length) lines.push('Added to your watchlist:', ...newOnes.map(f => '• ' + fmt(f)));\nif (already.length) lines.push(`Already on your watchlist: ${already.map(f => f.symbol).join(', ')}`);\nif (v.missing.length) lines.push(`No quote found for: ${v.missing.join(', ')}. Could you check the ticker?`);\nif (v.unknown.length) lines.push(`I could not find a US stock for: ${v.unknown.join(', ')}. Which ticker did you mean?`);\nif (!lines.length) lines.push('Nothing to add.');\nreturn [{ json: { intent: 'watchlist', status: 'done', reply: lines.join('\\n'),\n  data: { added: [...added], resolved: v.resolved, already: already.map(f => f.symbol), missing: v.missing, unknown: v.unknown } } }];\n"
+        "jsCode": "const v = $('Keep only valid tickers').first().json;\nconst added = new Set($json.added);\nconst money = (n, c) => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n) + ' ' + c;\nconst said = Object.fromEntries(v.resolved.map(r => [r.symbol, r.name]));\nconst fmt = f => `${f.symbol}${f.name ? ` (${f.name})` : ''}: ${money(f.price, f.currency)}`\n  + (f.change_pct != null ? ` (${f.change_pct >= 0 ? '+' : ''}${f.change_pct.toFixed(2)}%)` : '')\n  + (said[f.symbol] && said[f.symbol].toUpperCase() !== f.symbol ? `  ← \"${said[f.symbol]}\"` : '');\nconst lines = [];\nconst newOnes = v.found.filter(f => added.has(f.symbol));\nconst already = v.found.filter(f => !added.has(f.symbol));\nif (newOnes.length) lines.push('Added to your watchlist:', ...newOnes.map(f => '• ' + fmt(f)));\nif (already.length) lines.push(`Already on your watchlist: ${already.map(f => f.symbol).join(', ')}`);\nif (v.missing.length) lines.push(`No quote found for: ${v.missing.join(', ')}. Could you check the ticker?`);\nif (v.unknown.length) lines.push(`I could not find a US stock for: ${v.unknown.join(', ')}. Which ticker did you mean?`);\nif (!lines.length) lines.push('Nothing to add.');\nreturn [{ json: { intent: 'watchlist', status: 'done', reply: lines.join('\\n'),\n  data: { added: [...added], resolved: v.resolved, already: already.map(f => f.symbol), missing: v.missing, unknown: v.unknown } } }];\n"
       },
-      "name": "Added reply",
-      "id": "a8192228-9232-5922-bbe7-2e5748f0ef51",
+      "name": "Reply: added + prices",
+      "id": "cde9e3f0-492e-5141-b118-2a0c10af7a21",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -304,8 +304,8 @@
           "queryReplacement": "={{ JSON.stringify($json) }}"
         }
       },
-      "name": "Remove from watchlist",
-      "id": "5e0637c5-530b-5966-8c20-dbb3a757ba93",
+      "name": "DB: remove from watchlist",
+      "id": "faf74d88-12c2-5f5e-890e-f79db240a030",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -324,10 +324,10 @@
     },
     {
       "parameters": {
-        "jsCode": "const asked = $('Start').first().json.watchlist.items;\nconst removed = $json.removed;\nconst hit = item => removed.some(r => r.symbol.toLowerCase() === item.toLowerCase()\n  || (item.length >= 3 && String(r.name ?? '').toLowerCase().includes(item.toLowerCase())));\nconst notThere = asked.filter(i => !hit(i));\nconst lines = [];\nif (removed.length) lines.push(`Removed from your watchlist: ${removed.map(r => r.symbol).join(', ')}`);\nif (notThere.length) lines.push(`Not on your watchlist: ${notThere.join(', ')}`);\nreturn [{ json: { intent: 'watchlist', status: 'done', reply: lines.join('\\n') || 'Nothing to remove.',\n  data: { removed: removed.map(r => r.symbol), not_there: notThere } } }];\n"
+        "jsCode": "const asked = $('Input: add or remove').first().json.watchlist.items;\nconst removed = $json.removed;\nconst hit = item => removed.some(r => r.symbol.toLowerCase() === item.toLowerCase()\n  || (item.length >= 3 && String(r.name ?? '').toLowerCase().includes(item.toLowerCase())));\nconst notThere = asked.filter(i => !hit(i));\nconst lines = [];\nif (removed.length) lines.push(`Removed from your watchlist: ${removed.map(r => r.symbol).join(', ')}`);\nif (notThere.length) lines.push(`Not on your watchlist: ${notThere.join(', ')}`);\nreturn [{ json: { intent: 'watchlist', status: 'done', reply: lines.join('\\n') || 'Nothing to remove.',\n  data: { removed: removed.map(r => r.symbol), not_there: notThere } } }];\n"
       },
-      "name": "Removed reply",
-      "id": "dfc7b3e0-478c-5b2b-86b2-5f38184cd8e8",
+      "name": "Reply: removed",
+      "id": "b14d2319-bbd0-521d-a441-a563c77104f8",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -337,117 +337,117 @@
     }
   ],
   "connections": {
-    "Start": {
+    "Input: add or remove": {
       "main": [
         [
           {
-            "node": "Switch: action",
+            "node": "Route: add or remove",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Switch: action": {
+    "Route: add or remove": {
       "main": [
         [
           {
-            "node": "Split names",
+            "node": "One item per name",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Remove from watchlist",
+            "node": "DB: remove from watchlist",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Split names": {
+    "One item per name": {
       "main": [
         [
           {
-            "node": "Search name (Yahoo)",
+            "node": "API: find ticker by name (Yahoo)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Search name (Yahoo)": {
+    "API: find ticker by name (Yahoo)": {
       "main": [
         [
           {
-            "node": "Merge resolved",
+            "node": "Merge found tickers",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Merge resolved": {
+    "Merge found tickers": {
       "main": [
         [
           {
-            "node": "Split symbols",
+            "node": "One item per ticker",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Split symbols": {
+    "One item per ticker": {
       "main": [
         [
           {
-            "node": "Check ticker (Yahoo)",
+            "node": "API: check ticker exists (Yahoo)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Check ticker (Yahoo)": {
+    "API: check ticker exists (Yahoo)": {
       "main": [
         [
           {
-            "node": "Validate tickers",
+            "node": "Keep only valid tickers",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Validate tickers": {
+    "Keep only valid tickers": {
       "main": [
         [
           {
-            "node": "Save watchlist",
+            "node": "DB: add to watchlist",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Save watchlist": {
+    "DB: add to watchlist": {
       "main": [
         [
           {
-            "node": "Added reply",
+            "node": "Reply: added + prices",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Remove from watchlist": {
+    "DB: remove from watchlist": {
       "main": [
         [
           {
-            "node": "Removed reply",
+            "node": "Reply: removed",
             "type": "main",
             "index": 0
           }
